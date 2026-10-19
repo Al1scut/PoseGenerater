@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ポーズジェネレーター</title>
+<style>
+:root{--bg:#f1efea;--fg:#222;--pn:#fff;--bd:#d6d2c8;--ac:#2b6cb0}
+@media(prefers-color-scheme:dark){:root{--bg:#1b1c1f;--fg:#e8e8e8;--pn:#26282c;--bd:#3a3d43;--ac:#6aa8ff}}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 system-ui,"Hiragino Sans","Yu Gothic",sans-serif;background:var(--bg);color:var(--fg);display:flex;flex-wrap:wrap;gap:16px;padding:16px;align-items:flex-start}
+#side{width:300px;max-width:100%;background:var(--pn);border:1px solid var(--bd);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+#main{flex:1;min-width:280px;display:flex;justify-content:center}
+canvas{max-width:100%;max-height:calc(100vh - 32px);height:auto;background:#fff;border:1px solid var(--bd);box-shadow:0 2px 12px #0002}
+h1{font-size:16px;margin:0}
+button{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--pn);color:var(--fg);cursor:pointer}
+button.p{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600}
+button:hover{filter:brightness(1.08)}
+.row{display:flex;gap:6px}.row>*{flex:1}
+label{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
+label.c{justify-content:flex-start}
+select,input[type=text]{font:inherit;padding:4px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--pn);color:var(--fg);min-width:0}
+input[type=range]{width:150px}
+hr{border:0;border-top:1px solid var(--bd);width:100%;margin:2px 0}
+small{opacity:.65}
+</style></head><body>
+<div id="side">
+<h1>ポーズジェネレーター</h1>
+<button class="p" id="gen">🎲 全部ランダム生成 (Space)</button>
+<div class="row"><button id="gp">ポーズだけ (P)</button><button id="gc">カメラだけ (C)</button></div>
+<button id="save">💾 PNGで保存 (S)</button>
+<hr>
+<label>シーン<select id="scn"><option value="auto">おまかせ(1〜10人)</option></select></label>
+<label>ポーズ種類(1人用)<select id="ptype"><option value="random">おまかせ</option></select></label>
+<label>アタリの種類<select id="style"><option value="volume">円柱・球(ボリューム)</option><option value="joint">関節ボール(デッサン人形)</option><option value="box">箱型(ブロック)</option><option value="stick">棒人間</option><option value="silhouette">シルエット(塊)</option><option value="gesture">ジェスチャー(動勢線)</option></select></label>
+<label>キャンバス<select id="asp"><option>3:4</option><option>4:3</option><option>1:1</option><option>9:16</option><option>16:9</option></select></label>
+<label>構図<select id="comp"><option value="auto">自動</option><option value="third">三分割</option><option value="golden">黄金比</option><option value="center">中央</option><option value="diag">対角線</option></select></label>
+<label>ショット(1人のみ)<select id="shot"><option value="auto">自動</option><option value="full">全身</option><option value="knee">ひざ上</option><option value="bust">バスト</option></select></label>
+<label>線の色<select id="col"><option value="#3b6cb0">青</option><option value="#c0392b">赤</option><option value="#555555">グレー</option><option value="#111111">黒</option></select></label>
+<hr>
+<label>パース種類<select id="pt"><option value="auto">おまかせ</option><option value="1">1点透視</option><option value="2">2点透視</option><option value="3">3点透視</option></select></label>
+<label>背景の建物<select id="bkind"><option value="auto">おまかせ</option><option value="none">なし</option><option value="street">街並み・路地</option><option value="corner">角(コーナー)</option><option value="single">単体の建物</option><option value="cluster">ビル群・家々</option></select></label>
+<label>方位<input type="range" id="az" min="-180" max="180"></label>
+<label>あおり/ふかん(目の高さ)<input type="range" id="el" min="-50" max="65"></label>
+<label>横ずれ(消失点の位置)<input type="range" id="sx" min="-200" max="200"></label>
+<label>パース強度<input type="range" id="pers" min="0" max="100"></label>
+<label>傾き<input type="range" id="roll" min="-30" max="30"></label>
+<hr><b>体の傾き(全員に加算)</b>
+<label>前後の傾き<input type="range" id="tw_lean" min="-40" max="40" value="0"></label>
+<label>横の傾き<input type="range" id="tw_side" min="-40" max="40" value="0"></label>
+<label>胴のひねり<input type="range" id="tw_twist" min="-60" max="60" value="0"></label>
+<label>腰の傾き<input type="range" id="tw_tilt" min="-30" max="30" value="0"></label>
+<label>猫背/反り<input type="range" id="tw_bend" min="-40" max="40" value="0"></label>
+<label>頭の傾き<input type="range" id="tw_head" min="-40" max="40" value="0"></label>
+<div class="row"><button id="twrand">傾きランダム</button><button id="twreset">リセット</button></div>
+<hr>
+<label class="c"><input type="checkbox" id="vol" checked>塗り(裏の線を隠す)</label>
+<label class="c"><input type="checkbox" id="bone" checked>骨格・肩腰ライン</label>
+<label class="c"><input type="checkbox" id="joint" checked>関節点</label>
+<label class="c"><input type="checkbox" id="guide" checked>構図ガイド</label>
+<label class="c"><input type="checkbox" id="persp" checked>パース(グリッド/消失点/ホライゾン/収束線)</label>
+<label class="c"><input type="checkbox" id="cog" checked>重心線・接地影</label>
+<label class="c"><input type="checkbox" id="memo" checked>メモ文字を入れる</label>
+<hr><b>動きを示す線</b>
+<label class="c"><input type="checkbox" id="trail">軌跡(手足の動きの弧)</label>
+<label class="c"><input type="checkbox" id="ghost">残像(前のコマ)</label>
+<label class="c"><input type="checkbox" id="speed">スピード線(流線)</label>
+<label class="c"><input type="checkbox" id="focus">集中線</label>
+<label>動きの量<input type="range" id="mot" min="0" max="100" value="60"></label>
+<button id="mrand">動き線おまかせ</button>
+<label>線の太さ<input type="range" id="lwm" min="50" max="250" value="100"></label>
+<hr>
+<b>人物ごとの設定(最大10人)</b>
+<label>人数(自由配置)<input type="range" id="nfree" min="1" max="10" value="4"></label>
+<button id="mkfree">👥 自由配置で生成(各人独立)</button>
+<div class="row" id="tabs" style="flex-wrap:wrap"></div>
+<div id="pp" style="display:flex;flex-direction:column;gap:8px">
+<label>ポーズ<select id="pp_pose"></select></label>
+<label>X位置<input type="range" id="pp_x" min="-300" max="300"></label>
+<label>奥行<input type="range" id="pp_z" min="-250" max="250"></label>
+<label>向き<input type="range" id="pp_yaw" min="-180" max="180"></label>
+<label>大きさ<input type="range" id="pp_sc" min="60" max="130"></label></div>
+<small>ポーズ・位置は「自由配置」シーンのみ。服と持ち物は全シーンで使えます。</small>
+<div class="row"><button id="clr">この人の服ランダム</button><button id="clra">全員の服ランダム</button></div>
+<label class="c"><input type="checkbox" id="clon" checked>服を表示</label>
+<label class="c"><input type="checkbox" id="iton" checked>持ち物を表示</label>
+<label class="c"><input type="checkbox" id="lbl" checked>人物番号を表示(クリックで選択)</label>
+<label class="c"><input type="checkbox" id="clrand" checked>生成時に服・持ち物もランダム</label>
+<hr>
+<label>シード<input type="text" id="seed" size="15"></label>
+<small>シードを書き換えてEnterで再現できます。スライダーで視点を手動調整可。1点・2点透視は縦線が平行(シフトレンズ)、3点透視は縦線も消失点に収束します。</small>
+</div>
+<div id="main"><canvas id="cv"></canvas></div>
+<script>
+
+const $=id=>document.getElementById(id),cv=$('cv'),ctx=cv.getContext('2d'),D=Math.PI/180;
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],mul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s],dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],norm=a=>mul(a,1/(Math.hypot(...a)||1));
+const Rx=a=>{const c=Math.cos(a),s=Math.sin(a);return[1,0,0,0,c,-s,0,s,c]},Ry=a=>{const c=Math.cos(a),s=Math.sin(a);return[c,0,s,0,1,0,-s,0,c]},Rz=a=>{const c=Math.cos(a),s=Math.sin(a);return[c,-s,0,s,c,0,0,0,1]};
+const mm=(A,B)=>{const M=[];for(let i=0;i<3;i++)for(let j=0;j<3;j++)M.push(A[i*3]*B[j]+A[i*3+1]*B[3+j]+A[i*3+2]*B[6+j]);return M};
+const ap=(M,v)=>[M[0]*v[0]+M[1]*v[1]+M[2]*v[2],M[3]*v[0]+M[4]*v[1]+M[5]*v[2],M[6]*v[0]+M[7]*v[1]+M[8]*v[2]];
+const rod=(v,k,a)=>{k=norm(k);const c=Math.cos(a),s=Math.sin(a);return add(add(mul(v,c),mul(cross(k,v),s)),mul(k,dot(k,v)*(1-c)))};
+const rng=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+
+/* ---------- ポーズ定義 (角度は度) ---------- */
+const A2=f=>[0,1].map(i=>f(i));
+const ARCH={
+stand:{n:'立ち',g:R=>({lean:R(-4,6),bend:R(-6,10),twist:R(-20,20),side:R(-8,8),tilt:R(-8,8),arm:A2(()=>({f:R(-25,25),a:R(4,22),b:R(5,45),roll:R(-40,40)})),leg:A2(()=>({f:R(-10,15),a:R(3,10),b:R(0,15)})),jump:0})},
+walk:{n:'歩き',g:R=>{const f=R(22,36),L=[{f,a:4,b:R(0,12)},{f:-R(14,24),a:4,b:R(8,28),ft:55}];if(R(0,1)<.5)L.reverse();return{lean:R(2,7),bend:R(0,8),twist:R(-18,18),side:R(-4,4),tilt:R(-5,5),leg:L,arm:A2(i=>({f:-L[i].f*.8+R(-5,5),a:R(3,9),b:R(15,45),roll:R(-20,20)})),jump:0}}},
+run:{n:'走り',g:R=>{const L=[{f:R(50,80),a:R(3,8),b:R(50,90),ft:70},{f:-R(25,45),a:R(3,8),b:R(70,110),ft:40}];if(R(0,1)<.5)L.reverse();return{lean:R(8,20),bend:R(0,10),twist:R(-20,20),side:R(-5,5),tilt:R(-6,6),leg:L,arm:A2(i=>({f:Math.max(-60,Math.min(70,-L[i].f*.9)),a:R(5,15),b:R(70,100),roll:R(-20,20)})),jump:R(.05,.25)}}},
+jump:{n:'ジャンプ',g:R=>({lean:R(-10,10),bend:R(-5,12),twist:R(-20,20),side:R(-8,8),tilt:R(-6,6),leg:A2(()=>({f:R(20,80),a:R(5,20),b:R(40,110),ft:R(40,70)})),arm:A2(()=>({f:R(20,150),a:R(20,110),b:R(5,50),roll:R(-40,40)})),jump:R(.3,.9)})},
+crouch:{n:'しゃがみ',g:R=>({lean:R(10,30),bend:R(10,30),twist:R(-20,20),side:R(-6,6),tilt:R(-5,5),leg:A2(()=>({f:R(80,110),a:R(8,25),b:R(100,140),ft:75})),arm:A2(()=>({f:R(10,60),a:R(5,25),b:R(20,80),roll:R(-30,30)})),jump:0})},
+kick:{n:'キック',g:R=>{const L=[{f:R(0,10),a:5,b:R(5,15)},{f:R(70,115),a:R(5,25),b:R(5,40)}];if(R(0,1)<.5)L.reverse();return{lean:R(-18,-6),bend:R(-5,8),twist:R(-30,30),side:R(-10,10),tilt:R(-8,8),leg:L,arm:A2(()=>({f:R(-30,30),a:R(35,85),b:R(10,50),roll:R(-30,30)})),jump:R(0,.1)}}},
+reach:{n:'手を伸ばす',g:R=>{const ar=[{f:R(125,170),a:R(8,30),b:R(0,20),roll:0},{f:R(-10,40),a:R(20,50),b:R(20,50),roll:R(-30,30)}];if(R(0,1)<.5)ar.reverse();return{lean:R(-8,10),bend:R(-6,10),twist:R(-20,20),side:R(-15,15),tilt:R(-6,6),arm:ar,leg:[{f:R(-6,18),a:R(4,10),b:R(0,15)},{f:R(-12,5),a:R(4,10),b:R(0,15)}],jump:0}}},
+sit:{n:'座り',g:R=>({lean:R(-5,12),bend:R(0,20),twist:R(-20,20),side:R(-6,6),tilt:R(-4,4),leg:A2(()=>({f:R(78,95),a:R(5,18),b:R(80,100)})),arm:A2(()=>({f:R(10,50),a:R(5,20),b:R(40,90),roll:R(-30,30)})),jump:0,seat:1})},
+punch:{n:'パンチ',g:R=>{const sw=R(0,1)<.5,t=R(15,40)*(sw?1:-1),ar=[{f:R(70,100),a:R(5,15),b:R(0,15),roll:0},{f:R(20,50),a:R(15,30),b:R(100,130),roll:0}],lg=[{f:R(15,30),a:R(8,14),b:R(10,30)},{f:-R(10,25),a:R(8,14),b:R(10,30),ft:60}];if(sw){ar.reverse();lg.reverse()}return{lean:R(5,15),bend:R(0,10),twist:t,side:R(-6,6),tilt:R(-5,5),arm:ar,leg:lg,jump:0}}},
+throw:{n:'投げる',g:R=>{const ar=[{f:-R(20,50),a:R(60,100),b:R(60,100),roll:R(-30,30)},{f:R(60,100),a:R(10,30),b:R(0,20),roll:0}],lg=[{f:R(25,40),a:R(6,12),b:R(10,30)},{f:-R(15,30),a:R(6,12),b:R(0,15),ft:60}];if(R(0,1)<.5){ar.reverse();lg.reverse()}return{lean:R(-8,6),bend:R(-5,8),twist:R(25,50)*(R(0,1)<.5?1:-1),side:R(-8,8),tilt:R(-5,5),arm:ar,leg:lg,jump:0}}},
+lunge:{n:'踏み込み(ランジ)',g:R=>{const lg=[{f:R(70,90),a:R(5,12),b:R(80,100)},{f:-R(15,30),a:R(5,12),b:R(70,100)}];if(R(0,1)<.5)lg.reverse();return{lean:R(5,15),bend:R(0,12),twist:R(-15,15),side:R(-5,5),tilt:R(-4,4),leg:lg,arm:A2(()=>({f:R(-20,40),a:R(10,30),b:R(20,60),roll:R(-20,20)})),jump:0}}},
+kneel:{n:'片膝立ち',g:R=>{const lg=[{f:R(85,95),a:R(5,10),b:R(85,95)},{f:R(-5,10),a:R(5,10),b:R(85,110)}];if(R(0,1)<.5)lg.reverse();return{lean:R(-2,12),bend:R(0,14),twist:R(-20,20),side:R(-5,5),tilt:R(-4,4),leg:lg,arm:A2(()=>({f:R(0,60),a:R(5,25),b:R(10,80),roll:R(-30,30)})),jump:0}}},
+hero:{n:'仁王立ち(腰に手)',g:R=>({lean:R(-5,3),bend:R(-5,5),twist:R(-12,12),side:R(-4,4),tilt:R(-4,4),arm:A2(i=>({f:R(-10,20),a:R(35,55),b:R(100,130),roll:(i?1:-1)*R(70,100)})),leg:A2(()=>({f:R(-5,10),a:R(12,22),b:R(0,8)})),jump:0})},
+wave:{n:'手を振る',g:R=>{const ar=[{f:R(0,30),a:R(70,100),b:R(70,110),roll:R(-20,20)},{f:R(-15,20),a:R(4,20),b:R(5,40),roll:R(-30,30)}];if(R(0,1)<.5)ar.reverse();return{lean:R(-3,5),bend:R(-5,8),twist:R(-15,15),side:R(-12,12),tilt:R(-8,8),arm:ar,leg:A2(()=>({f:R(-10,12),a:R(3,10),b:R(0,12)})),jump:0}}},
+dance:{n:'ダンス(ひねり)',g:R=>{const lg=[{f:R(20,60),a:R(5,25),b:R(30,80)},{f:R(-5,10),a:R(5,10),b:R(0,10)}];if(R(0,1)<.5)lg.reverse();return{lean:R(-10,15),bend:R(-10,15),twist:R(-45,45),side:R(-20,20),tilt:R(-15,15),arm:A2(()=>({f:R(-20,60),a:R(40,130),b:R(10,70),roll:R(-40,40)})),leg:lg,jump:R(0,.1)}}},
+fall:{n:'のけぞり/よろめき',g:R=>{const lg=[{f:R(15,30),a:R(5,12),b:R(5,25)},{f:-R(10,20),a:R(5,12),b:R(10,30),ft:60}];if(R(0,1)<.5)lg.reverse();return{lean:-R(15,30),bend:-R(5,15),twist:R(-15,15),side:R(-8,8),tilt:R(-6,6),arm:A2(()=>({f:R(-40,10),a:R(30,70),b:R(20,60),roll:R(-30,30)})),leg:lg,jump:0}}},
+stretch:{n:'背伸び',g:R=>({lean:-R(0,8),bend:-R(0,10),twist:R(-10,10),side:R(-8,8),tilt:R(-4,4),arm:A2(()=>({f:R(150,175),a:R(5,30),b:R(0,15),roll:0})),leg:A2(()=>({f:R(-3,3),a:3,b:0})),jump:.02})}
+};
+for(const k in ARCH){const o=document.createElement('option');o.value=k;o.textContent=ARCH[k].n;$('ptype').appendChild(o)}
+
+/* ---------- 3D骨格 (顔は +z 向き, y上) ---------- */
+function build(p){
+ const Rp=mm(Rx(p.lean*D),Rz(p.tilt*D)),Rc=mm(mm(mm(Rp,Rx(p.bend*D)),Ry(p.twist*D)),Rz(p.side*D)),Rh=mm(mm(mm(Rc,Rx(p.nod*D)),Ry(p.turn*D)),Rz(p.hz*D));
+ const P={};P.pel=[0,1,0];P.waist=add(P.pel,ap(Rp,[0,.1,0]));P.nb=add(P.waist,ap(Rc,[0,.38,0]));
+ P.nk=add(P.nb,ap(Rh,[0,.09,0]));P.head=add(P.nb,ap(Rh,[0,.19,0]));
+ for(let i=0;i<2;i++){const s=i?1:-1,q=p.arm[i],l=p.leg[i];
+  P['sh'+i]=add(P.nb,ap(Rc,[s*.19,-.04,0]));
+  const u=norm(ap(Rc,ap(Rx(-q.f*D),ap(Rz(s*q.a*D),[0,-1,0]))));
+  P['el'+i]=add(P['sh'+i],mul(u,.29));
+  const fd=rod(u,rod(ap(Rc,[1,0,0]),u,q.roll*D),-q.b*D);
+  P['wr'+i]=add(P['el'+i],mul(fd,.26));P['hd'+i]=add(P['wr'+i],mul(fd,.1));
+  P['hp'+i]=add(P.pel,ap(Rp,[s*.09,-.05,0]));
+  const t=norm(ap(Rp,ap(Rx(-l.f*D),ap(Rz(s*l.a*D),[0,-1,0]))));
+  P['kn'+i]=add(P['hp'+i],mul(t,.42));
+  const sh=rod(t,ap(Rp,[1,0,0]),l.b*D);
+  P['an'+i]=add(P['kn'+i],mul(sh,.41));
+  P['toe'+i]=add(P['an'+i],mul(rod(sh,ap(Rp,[1,0,0]),-(l.ft||80)*D),.2));
+ }
+ let mn=1e9;for(const k of['an0','an1','toe0','toe1'])mn=Math.min(mn,P[k][1]);mn=Math.min(mn,P.kn0[1]-.05,P.kn1[1]-.05);
+ const dy=-mn+(p.jump||0);for(const k in P)P[k][1]+=dy;
+ return{P,Rp,Rc,Rh};
+}
+const S={mot:.6,az:0,el:10,pers:.6,roll:0,cpi:0,shotA:'full',cmA:'third',ps:1,cs:1,pt:2,sx:0,chars:[],solids:[],hs:2,rad:1};
+const both=(c,f)=>{f(c.p);f(c.alt);return c};
+const fin=(p,R,t)=>{p.nod=R(-12,18);p.turn=R(-40,40);p.hz=R(-10,10);p.type=t;p.leg.forEach(l=>l.ft=l.ft||80);return p};
+const mkc=(t,R,R2,o={})=>Object.assign({type:t,p:fin(ARCH[t].g(R),R,t),alt:fin(ARCH[t].g(R2),R2,t),pos:[0,0],yaw:0,sc:1,ik:[]},o);
+const pick=(R,a)=>a[Math.min(a.length-1,Math.floor(R(0,1)*a.length))];
+const mid=(a,b,o=[0,0,0])=>[(a[0]+b[0])/2+o[0],(a[1]+b[1])/2+o[1],(a[2]+b[2])/2+o[2]];
+const yawTo=(a,b)=>Math.atan2(b[0]-a[0],b[1]-a[1])/D;
+const nearArm=(F,i,j)=>Math.hypot(...sub(F[i].P.sh0,F[j].P.pel))<=Math.hypot(...sub(F[i].P.sh1,F[j].P.pel))?0:1;
+const TALK=['stand','stand','hero','wave','reach','stand'];
+const sgn=a=>a?1:-1;
+
+/* ---------- キャラの配置変換 / 2ボーンIK ---------- */
+function xf(J,ch){const Y=Ry(ch.yaw*D),P={};
+ for(const k in J.P){const q=ap(Y,mul(J.P[k],ch.sc));P[k]=[q[0]+ch.pos[0],q[1],q[2]+ch.pos[1]]}
+ return{P,Rp:mm(Y,J.Rp),Rc:mm(Y,J.Rc),Rh:mm(Y,J.Rh),sc:ch.sc}}
+function ik2(ch,i,T,pl){const P=ch.fr.P,s=ch.sc,S0=P['sh'+i],L1=.29*s,L2=.26*s,H=.1*s;
+ const dir=norm(sub(T,S0));let W=sub(T,mul(dir,H));const wv=sub(W,S0),d=Math.hypot(...wv),u=norm(wv),dd=Math.min((L1+L2)*.985,Math.max(Math.abs(L1-L2)+.02,d));
+ W=add(S0,mul(u,dd));const a=(L1*L1-L2*L2+dd*dd)/(2*dd),h=Math.sqrt(Math.max(0,L1*L1-a*a));
+ let pv=ap(Ry(ch.yaw*D),pl||[sgn(i)*.5,-.7,-.5]);pv=sub(pv,mul(u,dot(pv,u)));pv=Math.hypot(...pv)<1e-4?[0,-1,0]:norm(pv);
+ const E=add(add(S0,mul(u,a)),mul(pv,h));P['el'+i]=E;P['wr'+i]=W;P['hd'+i]=add(W,mul(norm(sub(W,E)),H))}
+
+/* ---------- シーン定義 ---------- */
+const SC={
+solo:{n:'1人',g:(R,R2,t)=>({ch:[mkc(t,R,R2)]})},
+shake:{n:'握手',g:(R,R2)=>{const d=R(.95,1.15),A=mkc('stand',R,R2,{pos:[-d/2,0],yaw:90+R(-15,15)}),B=mkc('stand',R,R2,{pos:[d/2,0],yaw:-90+R(-15,15),sc:R(.93,1.05)});
+ [A,B].forEach(c=>both(c,p=>{p.turn=R(-10,10);p.nod=R(-4,8);p.lean=R(2,9)}));
+ return{ch:[A,B],ik:F=>{const T=mid(F[0].P.sh0,F[1].P.sh0,[0,-.2,0]);return[{c:0,a:0,t:T},{c:1,a:0,t:T}]}}}},
+highfive:{n:'ハイタッチ',g:(R,R2)=>{const d=R(.66,.8),j=R(0,.3),A=mkc('stand',R,R2,{pos:[-d/2,0],yaw:90+R(-12,12)}),B=mkc('stand',R,R2,{pos:[d/2,0],yaw:-90+R(-12,12),sc:R(.94,1.04)});
+ [A,B].forEach(c=>both(c,p=>{p.turn=R(-10,10);p.nod=R(-6,0);p.lean=R(-6,4);p.jump=j*R(.6,1)}));
+ return{ch:[A,B],ik:F=>{const T=mid(F[0].P.sh0,F[1].P.sh0,[0,.34,0]);return[{c:0,a:0,t:T},{c:1,a:0,t:T}]}}}},
+holdwalk:{n:'手をつないで歩く',g:(R,R2)=>{const kid=R(0,1)<.5,x=R(.34,.42),A=mkc('walk',R,R2,{pos:[-x,0],yaw:R(-6,6)}),B=mkc('walk',R,R2,{pos:[x,0],yaw:R(-6,6),sc:kid?R(.8,.9):R(.95,1.05)});
+ return{ch:[A,B],ik:F=>{const a=nearArm(F,0,1),b=nearArm(F,1,0),T=mid(F[0].P['sh'+a],F[1].P['sh'+b],[0,-.4*(F[0].sc+F[1].sc)/2,0]);return[{c:0,a,t:T},{c:1,a:b,t:T}]}}}},
+shoulder:{n:'肩を組む',g:(R,R2)=>{const x=R(.28,.34),t=pick(R,['stand','walk','stand','hero']),mu=R(0,1)<.6,A=mkc(t,R,R2,{pos:[-x,0],yaw:R(-8,8)}),B=mkc(t,R,R2,{pos:[x,0],yaw:R(-8,8),sc:R(.94,1.05)});
+ return{ch:[A,B],ik:F=>{const o=[{c:0,a:1,t:mid(F[1].P.nb,F[1].P.sh1,[0,0,-.06])}];if(mu)o.push({c:1,a:0,t:mid(F[0].P.nb,F[0].P.sh0,[0,0,-.06])});return o}}}},
+hug:{n:'ハグ',g:(R,R2)=>{const d=R(.36,.44),A=mkc('stand',R,R2,{pos:[-d/2,0],yaw:90+R(-8,8)}),B=mkc('stand',R,R2,{pos:[d/2,0],yaw:-90+R(-8,8),sc:R(.9,1.04)});
+ [A,B].forEach(c=>both(c,p=>{p.lean=R(4,10);p.nod=R(-2,10);p.turn=R(-25,25)}));
+ return{ch:[A,B],ik:F=>{const o=[];for(let i=0;i<2;i++){const j=1-i,Fj=F[j];[0,1].forEach(a=>{const s=a?-1:1;o.push({c:i,a,pl:[sgn(a)*1,-.2,-.5],t:add(Fj.P.nb,ap(Fj.Rc,[s*.17*Fj.sc,-.14*Fj.sc,-.13*Fj.sc]))})})}return o}}}},
+talk:{n:'向かい合って会話',g:(R,R2)=>{const d=R(1.1,1.6),A=mkc(pick(R,TALK),R,R2,{pos:[-d/2,0],yaw:90+R(-28,28)}),B=mkc(pick(R,TALK),R,R2,{pos:[d/2,0],yaw:-90+R(-28,28),sc:R(.9,1.05)});
+ both(A,p=>p.turn=-(A.yaw-90)*.6+R(-8,8));both(B,p=>p.turn=-(B.yaw+90)*.6+R(-8,8));return{ch:[A,B]}}},
+backtoback:{n:'背中合わせ',g:(R,R2)=>{const A=mkc(pick(R,['hero','hero','stand']),R,R2,{pos:[R(-.08,.08),-.22],yaw:180+R(-15,15)}),B=mkc(pick(R,['hero','hero','stand']),R,R2,{pos:[R(-.08,.08),.22],yaw:R(-15,15),sc:R(.94,1.05)});return{ch:[A,B]}}},
+chase:{n:'追いかけっこ',g:(R,R2)=>{const A=mkc('run',R,R2,{pos:[0,.6],yaw:R(-10,10)}),B=mkc('run',R,R2,{pos:[R(-.5,.5),-R(1.0,1.6)],yaw:R(-10,10),sc:R(.92,1.06)});
+ both(B,p=>p.arm[0]={f:R(100,135),a:R(5,15),b:R(0,15),roll:0});both(A,p=>{p.turn=R(25,45)*(R(0,1)<.5?1:-1);p.nod=R(0,10)});return{ch:[A,B]}}},
+fight:{n:'殴り合い',g:(R,R2)=>{const d=R(.7,.82),A=mkc('punch',R,R2,{pos:[-d/2,0],yaw:90+R(-8,8)}),B=mkc('fall',R,R2,{pos:[d/2,0],yaw:-90+R(-10,10)});
+ const pa=A.p.arm[0].f>A.p.arm[1].f?0:1;
+ return{ch:[A,B],ik:F=>{const dv=norm(sub([F[0].P.pel[0],0,F[0].P.pel[2]],[F[1].P.pel[0],0,F[1].P.pel[2]]));return[{c:0,a:pa,t:add(mid(F[1].P.nb,F[1].P.head,[0,0,0]),mul(dv,.13)),pl:[sgn(pa)*.8,-.3,-.7]}]}}}},
+sitside:{n:'並んで座る',g:(R,R2)=>{const d=R(.68,.82),A=mkc('sit',R,R2,{pos:[-d/2,0],yaw:R(5,25)}),B=mkc('sit',R,R2,{pos:[d/2,0],yaw:-R(5,25),sc:R(.92,1.05)});
+ both(A,p=>p.turn=R(15,35));both(B,p=>p.turn=-R(15,35));return{ch:[A,B]}}},
+lead:{n:'手を引いて走る',g:(R,R2)=>{const t=pick(R,['run','walk']),A=mkc(t,R,R2,{pos:[0,.45],yaw:R(-6,6)}),B=mkc(t,R,R2,{pos:[R(.28,.4)*(R(0,1)<.5?1:-1),-.45],yaw:R(-6,6),sc:R(.82,1)});
+ both(A,p=>{p.turn=R(20,40)*(A.pos[0]<B.pos[0]?-1:1)});
+ return{ch:[A,B],ik:F=>{const a=nearArm(F,0,1),b=nearArm(F,1,0),T=mid(F[0].P['sh'+a],F[1].P['sh'+b],[0,-.3,0]);return[{c:0,a,t:T},{c:1,a:b,t:T}]}}}},
+dancepair:{n:'ペアダンス',g:(R,R2)=>{const d=R(.82,.95),A=mkc('dance',R,R2,{pos:[-d/2,0],yaw:90+R(-10,10)}),B=mkc('dance',R,R2,{pos:[d/2,0],yaw:-90+R(-10,10)});
+ [A,B].forEach(c=>both(c,p=>{p.lean=R(-12,-2);p.twist=R(-15,15);p.turn=R(-20,20)}));
+ return{ch:[A,B],ik:F=>{const T1=mid(F[0].P.sh0,F[1].P.sh1,[0,-.05,0]),T2=mid(F[0].P.sh1,F[1].P.sh0,[0,-.05,0]);return[{c:0,a:0,t:T1},{c:1,a:1,t:T1},{c:0,a:1,t:T2},{c:1,a:0,t:T2}]}}}},
+piggy:{n:'おんぶ',g:(R,R2)=>{const y=R(-10,10),l=R(18,26),A=mkc('stand',R,R2,{yaw:y}),B=mkc('stand',R,R2,{yaw:y,sc:R(.75,.9)});
+ both(A,p=>{p.lean=l;p.bend=R(4,10);p.twist=R(-8,8);p.leg=[{f:R(12,24),a:6,b:R(20,40),ft:80},{f:-R(4,12),a:6,b:R(5,15),ft:60}]});
+ both(B,p=>{p.lean=l-R(0,6);p.bend=R(0,8);p.twist=0;p.nod=R(-5,5);p.leg=[0,1].map(()=>({f:R(68,85),a:R(18,26),b:R(60,85),ft:70}))});
+ return{ch:[A,B],post:F=>{const bk=[-Math.sin(y*D),0,-Math.cos(y*D)],tg=add(add(F[0].P.pel,mul(bk,.3)),[0,.08,0]);return{1:sub(tg,F[1].P.pel)}},
+  ik:F=>{const o=[];for(let i=0;i<2;i++){o.push({c:1,a:i,t:add(F[0].P.nb,ap(F[0].Rc,[sgn(i)*.1,-.03,.09]))});o.push({c:0,a:i,t:add(mid(F[1].P['hp'+i],F[1].P['kn'+i]),[0,-.04,0])})}return o}}}},
+trio:{n:'3人で手をつなぐ',g:(R,R2)=>{const t=pick(R,['walk','walk','stand','run']),hold=R(0,1)<.75,xs=[-.74,0,.74],ch=xs.map((x,i)=>mkc(t,R,R2,{pos:[x+R(-.05,.05),R(-.1,.1)],yaw:R(-8,8),sc:i===1&&R(0,1)<.4?R(.8,.9):R(.96,1.06)}));
+ return{ch,ik:hold?F=>{const o=[];[[0,1],[1,2]].forEach(([i,j])=>{const a=nearArm(F,i,j),b=nearArm(F,j,i),T=mid(F[i].P['sh'+a],F[j].P['sh'+b],[0,-.4*(F[i].sc+F[j].sc)/2,0]);o.push({c:i,a,t:T},{c:j,a:b,t:T})});return o}:null}}},
+chain:{n:'肩を組んで並ぶ',g:(R,R2)=>{const n=3+Math.floor(R(0,8)),dr=R(0,1)<.5?1:-1,t=pick(R,['stand','walk','stand','dance']),sp=R(.58,.66),ch=[];
+ for(let i=0;i<n;i++)ch.push(mkc(t,R,R2,{pos:[dr*(i-(n-1)/2)*sp,R(-.06,.06)],yaw:R(-8,8),sc:R(.95,1.06)}));
+ return{ch,ik:F=>{const o=[],a=dr>0?1:0;for(let i=0;i<n-1;i++)o.push({c:i,a,t:mid(F[i+1].P.nb,F[i+1].P['sh'+a],[0,0,-.06])});return o}}}},
+circle:{n:'円陣(手をつなぐ)',g:(R,R2)=>{const n=3+Math.floor(R(0,8)),d=R(.78,.86),r=d/(2*Math.sin(Math.PI/n)),th0=R(0,6.28),up=R(0,1)<.35,out=R(0,1)<.15,t=pick(R,['stand','dance','jump','stand']),ch=[];
+ for(let i=0;i<n;i++){const th=th0+i*6.2832/n,pos=[r*Math.cos(th),r*Math.sin(th)];ch.push(mkc(t==='jump'&&!up?'stand':t,R,R2,{pos,yaw:yawTo(pos,[0,0])+(out?180:0),sc:R(.94,1.06)}))}
+ return{ch,ik:F=>{const o=[];for(let i=0;i<n;i++){const j=(i+1)%n,a=nearArm(F,i,j),b=nearArm(F,j,i),T=mid(F[i].P['sh'+a],F[j].P['sh'+b],[0,up?.3:-.38*F[i].sc,0]);o.push({c:i,a,t:T},{c:j,a:b,t:T})}return o}}}},
+tritalk:{n:'輪になって会話',g:(R,R2)=>{const n=3+Math.floor(R(0,4)),r=R(.8,1.05),th0=R(0,6.28),ch=[];
+ for(let i=0;i<n;i++){const th=th0+i*6.2832/n,pos=[r*Math.cos(th),r*Math.sin(th)],c=mkc(pick(R,TALK),R,R2,{pos,yaw:yawTo(pos,[0,0])+R(-25,25),sc:R(.9,1.06)});ch.push(c)}return{ch}}},
+photo:{n:'集合写真',g:(R,R2)=>{const n=3+Math.floor(R(0,8)),nf=Math.ceil(n/2),nb=n-nf,ch=[],ps=['stand','wave','hero','stretch','jump','stand','hero'],kn=R(0,1)<.35,sp=R(.7,.85);
+ for(let i=0;i<nf;i++)ch.push(mkc(kn?pick(R,['kneel','crouch','stand']):pick(R,ps),R,R2,{pos:[(i-(nf-1)/2)*sp,.35],yaw:R(-12,12),sc:R(.92,1.02)}));
+ for(let i=0;i<nb;i++)ch.push(mkc(pick(R,ps),R,R2,{pos:[(i-(nb-1)/2)*sp*1.25,-.55],yaw:R(-12,12),sc:R(1,1.1)}));
+ ch.forEach(c=>both(c,p=>{p.turn*=.3;p.hz*=.5}));return{ch}}},
+crowd:{n:'群像(バラバラ)',g:(R,R2)=>{const n=3+Math.floor(R(0,8)),ks=Object.keys(ARCH),ch=[],pts=[];
+ for(let i=0;i<n;i++){let p,k=0;do{p=[R(-1,1)*(1.2+.3*n),R(-1,1)*(.9+.22*n)];k++}while(k<40&&pts.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<1));pts.push(p);ch.push(mkc(pick(R,ks),R,R2,{pos:p,yaw:R(-70,70)+(R(0,1)<.3?180:0),sc:R(.85,1.08)}))}return{ch}}},
+free:{n:'自由配置(個別・1〜10人)',g:(R,R2)=>{const n=+$('nfree').value,ks=Object.keys(ARCH),ch=[];for(let i=0;i<n;i++){const f=cfg(i),y=R(0,1)<.2?R(120,180)*(R(0,1)<.5?1:-1):R(-60,60);ch.push(mkc(f.pose==='random'?pick(R,ks):f.pose,R,R2,{pos:spot(R,n,ch.map(c=>c.pos)),yaw:y,sc:R(.9,1.08)}))}return{ch}}},
+chase3:{n:'追跡(3人)',g:(R,R2)=>{const A=mkc('run',R,R2,{pos:[0,.9],yaw:R(-8,8)}),B=mkc('run',R,R2,{pos:[R(.2,.6),-.7],yaw:R(-8,8)}),C=mkc('run',R,R2,{pos:[-R(.3,.7),-1.8],yaw:R(-8,8),sc:R(.9,1.05)});
+ [B,C].forEach(c=>both(c,p=>p.arm[R(0,1)<.5?0:1]={f:R(100,135),a:R(5,15),b:R(0,15),roll:0}));both(A,p=>{p.turn=R(25,45);p.nod=R(0,10)});return{ch:[A,B,C]}}}
+};
+const PAIRS=['shake','highfive','holdwalk','shoulder','hug','talk','backtoback','chase','fight','sitside','lead','dancepair','piggy'],GROUPS=['trio','chain','circle','tritalk','photo','crowd','chase3'];
+(()=>{const s=$('scn');const og=(l,ks)=>{const g=document.createElement('optgroup');g.label=l;ks.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=SC[k].n;g.appendChild(o)});s.appendChild(g)};og('1人',['solo']);og('自由配置(個別操作)',['free']);og('2人',PAIRS);og('3人以上',GROUPS)})();
+
+/* ---------- 生成 ---------- */
+function layout(){
+ S.chars.forEach(c=>{c.ikArms=[];c.off=[0,0,0];c.fr=xf(build(adj(c,c.p)),c)});
+ const F=S.chars.map(c=>c.fr);
+ if(S.post){const d=S.post(F);for(const i in d){const c=S.chars[i];c.off=d[i];for(const k in c.fr.P)c.fr.P[k]=add(c.fr.P[k],d[i])}}
+ if(S.ikf)S.ikf(F).forEach(e=>{const ch=S.chars[e.c];ik2(ch,e.a,e.t,e.pl);ch.ikArms.push(e.a)});
+ let mn=[1e9,1e9,1e9],mx=[-1e9,-1e9,-1e9],rad=0;
+ S.chars.forEach(c=>Object.values(c.fr.P).forEach(q=>{for(let i=0;i<3;i++){mn[i]=Math.min(mn[i],q[i]);mx[i]=Math.max(mx[i],q[i])}rad=Math.max(rad,Math.hypot(q[0],q[2]))}));
+ mx[1]+=.12;S.hs=Math.max(mx[0]-mn[0],mx[1]-mn[1],mx[2]-mn[2],1.2);S.rad=rad+.3}
+function genPose(seed){const r=rng(seed),R=(a,b)=>a+(b-a)*r(),r2=rng(seed+7919),R2=(a,b)=>a+(b-a)*r2();
+ let k=$('scn').value;
+ if(k==='auto'){const x=r();k=x<.18?'solo':x<.62?pick(R,PAIRS):pick(R,GROUPS)}
+ let t=$('ptype').value;if(t==='random'){const ks=Object.keys(ARCH);t=ks[Math.floor(r()*ks.length)]}
+ const sc=SC[k].g(R,R2,t);S.chars=sc.ch;S.post=sc.post||null;S.ikf=sc.ik||null;S.sceneKey=k;S.sceneName=SC[k].n;
+ const m=[0,0];S.chars.forEach(c=>{m[0]+=c.pos[0]/S.chars.length;m[1]+=c.pos[1]/S.chars.length});S.chars.forEach(c=>{c.pos=[c.pos[0]-m[0],c.pos[1]-m[1]]});
+ S.ps=seed;if($('clrand').checked){const r3=rng(seed+555),R3=(a,b)=>a+(b-a)*r3();S.chars.forEach((c,i)=>Object.assign(cfg(i),rndCl(R3)))}layout();pp()}
+
+/* ---------- 背景の建物(世界座標・軸平行ボックス) ---------- */
+function genScn(seed){
+ const r=rng(seed+31337),R=(a,b)=>a+(b-a)*r();let k=$('bkind').value;
+ if(k==='auto'){const x=r();k=x<.16?'none':x<.5?'street':x<.68?'corner':x<.86?'single':'cluster'}
+ S.bk=k;S.solids=[];if(k==='none')return;
+ const sol=S.solids,gr=S.rad+.7,az=S.az*D,dx=-Math.sin(az),dz=-Math.cos(az),
+  ax=Math.abs(dx)>Math.abs(dz)?[Math.sign(dx),0]:[0,Math.sign(dz)||1],lt=[-ax[1],ax[0]],P2=(a,l)=>[ax[0]*a+lt[0]*l,ax[1]*a+lt[1]*l],
+  dist=S.hs*(1.7+12*Math.pow(1-S.pers,1.5)),aS=-dist*Math.cos(Math.min(Math.max(S.el,0),40)*D)*.5,
+  doorN=(vx,vz)=>Math.abs(vx)>Math.abs(vz)?(vx>0?1:3):(vz>0?2:0);
+ const box=(a0,a1,l0,l1,h,o={})=>{const p=P2(a0,l0),q=P2(a1,l1),s=Object.assign({x0:Math.min(p[0],q[0]),x1:Math.max(p[0],q[0]),z0:Math.min(p[1],q[1]),z1:Math.max(p[1],q[1]),h,y0:0,roof:0,fh:R(2.8,3.4),cw:R(1.2,2),wst:r()<.25?'ribbon':'grid',door:Math.floor(r()*4)},o);sol.push(s);return s};
+ const house=()=>r()<.2;
+ if(k==='street'){const rh=gr+R(.3,1.5),aE=R(12,24);
+  [-1,1].forEach(sd=>{let a=aS+R(0,2);while(a<aE){const len=R(2.4,6),w=R(3,6),hh=house();const h=hh?R(2.6,3.3):(r()<.3?R(9,20):R(3.5,9));
+   box(a,a+len,sd<0?-rh-w:rh,sd<0?-rh:rh+w,h,{roof:hh?R(.8,1.5):0,door:doorN(-sd*lt[0],-sd*lt[1])});a+=len+(r()<.2?R(.6,1.4):0)}});
+  if(r()<.6)box(aE,aE+R(1.5,3),-rh-4,rh+4,R(6,14),{door:doorN(-ax[0],-ax[1])});
+  for(let a=aS+2;a<aE*.7;a+=R(4,7)){const sd=r()<.5?-1:1,l=sd*(rh-.3);box(a,a+.12,l,l+.12,3.4,{nowin:1});box(a,a+.5,l-sd*.4,l+.12,.16,{y0:3.3,nowin:1})}}
+ else if(k==='corner'){const sg=r()<.5?-1:1,b0=gr+R(1.5,4),d1=R(3,5),sl=gr+R(.5,1.4),w2=R(3,5),L=(a,b)=>sg>0?[a,b]:[-b,-a];
+  let l=L(-R(3,6),sl);box(b0,b0+d1,l[0],l[1],R(5,14),{door:doorN(-ax[0],-ax[1])});
+  l=L(sl,sl+w2);box(aS*.8,b0+d1,l[0],l[1],R(4,12),{door:doorN(-sg*lt[0],-sg*lt[1])});
+  if(r()<.6){l=L(-R(6,10),-gr-1.2);box(b0+R(0,2),b0+R(3,6),l[0],l[1],R(3,9),{door:doorN(-ax[0],-ax[1])})}}
+ else if(k==='single'){const a0=gr+R(1.5,5),len=R(3,7),w=R(3,8),sh=R(-3,3);
+  box(a0,a0+len,sh-w/2,sh+w/2,R(4,16),{door:doorN(-ax[0],-ax[1])});
+  if(r()<.6){const s2=r()<.5?1:-1,l0=sh+s2*(w/2+R(.4,1.2)),w2=R(2.5,4);box(a0-R(0,1),a0+R(2.5,4),s2>0?l0:l0-w2,s2>0?l0+w2:l0,R(2.5,3.3),{roof:R(.8,1.4),door:doorN(-ax[0],-ax[1])})}}
+ else{const n=3+Math.floor(R(0,4)),rects=[];let t=0;
+  while(rects.length<n&&t++<80){const a0=gr+R(.8,14),l0=R(-10,10),w=R(1.8,4.5),d=R(1.8,4.5);if(rects.some(q=>a0<q[1]+.6&&a0+d>q[0]-.6&&l0<q[3]+.6&&l0+w>q[2]-.6))continue;
+   rects.push([a0,a0+d,l0,l0+w]);const hh=house();box(a0,a0+d,l0,l0+w,hh?R(2.6,3.3):R(2.5,14),{roof:hh?R(.8,1.4):0,door:doorN(-ax[0],-ax[1])})}}
+}
+
+/* ---------- カメラ ---------- */
+const PTN={1:'1点透視',2:'2点透視',3:'3点透視'};
+function genCam(seed){const r=rng(seed),R=(a,b)=>a+(b-a)*r();
+ let pt=$('pt').value;if(pt==='auto'){const x=r();pt=x<.3?1:x<.7?2:3}else{pt=+pt;r()}
+ S.pt=pt;let az,el,sx=0;const sgn_=r()<.5?-1:1,q=Math.floor(r()*4);
+ if(pt===1){az=[0,90,180,-90][q];el=R(-6,22);sx=R(-1.2,1.2)}
+ else if(pt===2){az=sgn_*R(18,72)+90*q;el=R(-6,24);sx=R(-.6,.6)}
+ else{az=R(-180,180);el=r()<.6?R(26,58):-R(14,32)}
+ az=Math.round(az);while(az>180)az-=360;while(az<-180)az+=360;S.az=az;S.el=Math.round(el);S.sx=+sx.toFixed(2);
+ S.pers=+(r()<.15?R(.2,.45):R(.45,.95)).toFixed(2);S.roll=Math.round(r()<.8?0:R(-12,12));
+ S.cpi=Math.floor(r()*4);S.shotA=['full','full','full','knee','bust'][Math.floor(r()*5)];S.cmA=['third','third','golden','center','diag'][Math.floor(r()*5)];S.cs=seed;genScn(seed);sync()}
+function sync(){$('az').value=S.az;$('el').value=S.el;$('pers').value=Math.round(S.pers*100);$('roll').value=S.roll;$('sx').value=Math.round(S.sx*100);$('seed').value=S.ps+'-'+S.cs}
+const rs=()=>Math.floor(Math.random()*999999)+1;
+/* ---------- 描画 ---------- */
+const hull=pts=>{pts=pts.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]),lo=[],up=[];for(const p of pts){while(lo.length>1&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>1&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p)}up.pop();lo.pop();return lo.concat(up)};
+const opts=()=>({vol:$('vol').checked,bone:$('bone').checked,joint:$('joint').checked,guide:$('guide').checked,persp:$('persp').checked,cog:$('cog').checked,memo:$('memo').checked,col:$('col').value});
+function compPt(m,i){return({third:[[1/3,1/3],[2/3,1/3],[1/3,2/3],[2/3,2/3]],golden:[[.382,.382],[.618,.382],[.382,.618],[.618,.618]],center:[[.5,.5],[.5,.5],[.5,.5],[.5,.5]],diag:[[.3,.7],[.7,.3],[.3,.3],[.7,.7]]})[m][i]}
+const MV={walk:.3,run:.8,jump:.5,lunge:.25,punch:.2,throw:.2,kick:.3,fall:.2};
+const STN={volume:'円柱球',joint:'関節ボール',box:'箱型',stick:'棒人間',silhouette:'シルエット',gesture:'ジェスチャー'};
+const lp=(a,b,t)=>{if(typeof a==='number')return a+((typeof b==='number'?b:a)-a)*t;if(Array.isArray(a))return a.map((x,i)=>lp(x,b&&b[i],t));if(a&&typeof a==='object'){const o={};for(const k in a)o[k]=lp(a[k],b&&b[k],t);return o}return a};
+const BONES=[['pel','nb'],['nb','nk'],['sh0','sh1'],['hp0','hp1']];
+for(let i=0;i<2;i++)[['sh','el'],['el','wr'],['wr','hd'],['hp','kn'],['kn','an'],['an','toe']].forEach(([a,b])=>BONES.push([a+i,b+i]));
+S.tw={lean:0,side:0,twist:0,tilt:0,bend:0,head:0};
+const adj=(c,p)=>{const q=JSON.parse(JSON.stringify(p)),t=S.tw,j=c.tj||{};q.lean+=t.lean+(j.lean||0);q.side+=t.side+(j.side||0);q.twist+=t.twist+(j.twist||0);q.tilt+=t.tilt+(j.tilt||0);q.bend+=t.bend+(j.bend||0);q.hz+=t.head+(j.head||0);return q};
+const TK=['lean','side','twist','tilt','bend','head'];
+function twSync(){TK.forEach(k=>$('tw_'+k).value=S.tw[k])}
+TK.forEach(k=>$('tw_'+k).oninput=e=>{S.tw[k]=+e.target.value;layout();render()});
+$('twrand').onclick=()=>{const R=(a,b)=>a+Math.random()*(b-a);S.tw={lean:R(-15,20),side:R(-15,15),twist:R(-30,30),tilt:R(-12,12),bend:R(-15,20),head:R(-20,20)};
+ S.chars.forEach(c=>{c.tj={lean:R(-8,8),side:R(-8,8),twist:R(-12,12),tilt:R(-6,6),bend:R(-8,8),head:R(-10,10)}});twSync();layout();render()};
+$('twreset').onclick=()=>{S.tw={lean:0,side:0,twist:0,tilt:0,bend:0,head:0};S.chars.forEach(c=>c.tj=null);twSync();layout();render()};
+function frameAt(ch,t,m){const pa=adj(ch,ch.p),prev=lp(pa,adj(ch,ch.alt),m),J=xf(build(lp(prev,pa,t)),ch),sh=(1-t)*m*(MV[ch.type]||0)*2*ch.sc,fw=[Math.sin(ch.yaw*D),0,Math.cos(ch.yaw*D)];
+ for(const k in J.P)J.P[k]=sub(add(J.P[k],ch.off||[0,0,0]),mul(fw,sh));return J.P}
+function render(){
+ const chars=S.chars,o=opts(),st=$('style').value,mt={};['trail','ghost','speed','focus'].forEach(k=>mt[k]=$(k).checked);
+ const W=cv.width,H=cv.height,lw=W/700*(+$('lwm').value/100),col=o.col,FILL=o.vol?'rgba(255,255,255,.93)':'rgba(255,255,255,0)',sil=st==='silhouette',lite=st==='stick'||st==='gesture';
+ ctx.setLineDash([]);ctx.globalAlpha=1;ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.lineJoin=ctx.lineCap='round';
+ const all=[];chars.forEach(c=>Object.values(c.fr.P).forEach(q=>all.push(q)));let mn=[1e9,1e9,1e9],mx=[-1e9,-1e9,-1e9];
+ all.forEach(q=>{for(let i=0;i<3;i++){mn[i]=Math.min(mn[i],q[i]);mx[i]=Math.max(mx[i],q[i])}});mx[1]+=.12;
+ const hs=Math.max(mx[0]-mn[0],mx[1]-mn[1],mx[2]-mn[2],1.2),multi=chars.length>1;
+ const shot=multi?'full':($('shot').value==='auto'?S.shotA:$('shot').value),cm=$('comp').value==='auto'?S.cmA:$('comp').value;
+ const avg=k=>{const s=[0,0,0];chars.forEach(c=>{const q=c.fr.P[k];for(let i=0;i<3;i++)s[i]+=q[i]/chars.length});return s};
+ let tgt=mul(add(mn,mx),.5),zoom=1;
+ if(shot==='knee'){tgt=mul(add(avg('pel'),avg('nb')),.5);zoom=1.6}if(shot==='bust'){tgt=add(avg('nb'),[0,-.12,0]);zoom=3}
+ const pt=S.pt,shiftM=pt!==3,dist=hs*(1.7+12*Math.pow(1-S.pers,1.5)),el=S.el*D,az=S.az*D;
+ const dir=[Math.sin(az)*Math.cos(el),Math.sin(el),Math.cos(az)*Math.cos(el)];
+ let cam=add(tgt,mul(dir,dist)),f=mul(dir,-1);
+ if(shiftM)f=[-Math.sin(az),0,-Math.cos(az)];
+ const right=norm(cross(f,[0,1,0])),up=cross(right,f);
+ if(shiftM)cam=add(cam,mul(right,S.sx*hs));
+ const cr=Math.cos(S.roll*D),sr=Math.sin(S.roll*D),toCam=q=>{const r=sub(q,cam);return[dot(r,right),dot(r,up),dot(r,f)]};
+ const c0=toCam(tgt),ox=c0[0]/c0[2],oy=c0[1]/c0[2];
+ let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+ all.concat(chars.map(c=>add(c.fr.P.head,[0,.12*c.sc,0]))).forEach(q=>{const c=toCam(q),x=c[0]/c[2]-ox,y=c[1]/c[2]-oy,a=x*cr-y*sr,b=x*sr+y*cr;x0=Math.min(x0,a);x1=Math.max(x1,a);y0=Math.min(y0,b);y1=Math.max(y1,b)});
+ const focal=Math.min(.72*W/(x1-x0),.72*H/(y1-y0))*zoom;
+ let[fx,fy]=compPt(cm,S.cpi),cx=fx*W,cy=fy*H;
+ if(zoom===1){const L=cx+x0*focal,Rr=cx+x1*focal,T=cy-y1*focal,B=cy-y0*focal;if(L<.04*W)cx+=.04*W-L;if(Rr>.96*W)cx-=Rr-.96*W;if(T<.04*H)cy+=.04*H-T;if(B>.96*H)cy-=B-.96*H}
+ const sc=(x,y)=>({x:cx+x*cr-y*sr,y:cy-(x*sr+y*cr)});
+ const proj=q=>{const c=toCam(q);if(c[2]<.09)return null;const s=sc((c[0]/c[2]-ox)*focal,(c[1]/c[2]-oy)*focal);s.z=c[2];s.k=focal/c[2];return s};
+ const vp=d=>{const z=dot(d,f);if(Math.abs(z)<1e-3)return null;return sc((dot(d,right)/z-ox)*focal,(dot(d,up)/z-oy)*focal)};
+ const stroke=(c,w,a,dash)=>{ctx.strokeStyle=c;ctx.lineWidth=w*lw;ctx.globalAlpha=a==null?1:a;ctx.setLineDash(dash?dash.map(v=>v*lw):[])};
+ const seg=(a,b)=>{ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()};
+ const line3=(a,b)=>{const n=.1,ca=toCam(a),cb=toCam(b);if(ca[2]<n&&cb[2]<n)return;if(ca[2]<n)a=add(a,mul(sub(b,a),(n-ca[2])/(cb[2]-ca[2])));else if(cb[2]<n)b=add(b,mul(sub(a,b),(n-cb[2])/(ca[2]-cb[2])));const pa=proj(a),pb=proj(b);if(pa&&pb)seg(pa,pb)};
+ const gc=mul(add(mn,mx),.5);
+ /* 構図ガイド */
+ if(o.guide){stroke('#e0709a',1,.55);const G=cm==='golden'?[.382,.618]:[1/3,2/3];
+  if(cm==='third'||cm==='golden')G.forEach(g=>{seg({x:g*W,y:0},{x:g*W,y:H});seg({x:0,y:g*H},{x:W,y:g*H})});
+  if(cm==='center'){seg({x:W/2,y:0},{x:W/2,y:H});seg({x:0,y:H/2},{x:W,y:H/2})}
+  if(cm==='diag'){seg({x:0,y:0},{x:W,y:H});seg({x:W,y:0},{x:0,y:H})}
+  ctx.beginPath();ctx.arc(fx*W,fy*H,8*lw,0,7);ctx.stroke()}
+ /* 集中線 */
+ if(mt.focus){const f0=proj(avg('nb'));if(f0){const r=rng(S.ps+11),M=Math.max(W,H),R0=M*.2;stroke('#444',1,.6);for(let i=0;i<90;i++){const a=i/90*6.2832+r()*.05,i0=R0*(1+.6*r());ctx.lineWidth=(.5+r()*1.6)*lw;seg({x:f0.x+Math.cos(a)*i0,y:f0.y+Math.sin(a)*i0},{x:f0.x+Math.cos(a)*M*1.3,y:f0.y+Math.sin(a)*M*1.3})}}}
+ /* 地面グリッド */
+ if(o.persp){stroke('#7a9bb5',1,.3);const gx=Math.round(gc[0]),gz=Math.round(gc[2]);
+  for(let i=-16;i<=16;i++){line3([gx+i*.5,0,gz-8],[gx+i*.5,0,gz+8]);line3([gx-8,0,gz+i*.5],[gx+8,0,gz+i*.5])}}
+ /* 消失点 */
+ const VPS=[['VP1',[1,0,0],'#e07a1f'],['VP2',[0,0,1],'#2b8fd6']];if(pt===3)VPS.push(['VP3',[0,1,0],'#2a9d6f']);VPS.forEach(v=>v.push(vp(v[1])));
+ /* 建物 */
+ const solids=S.solids||[],cenZ=toCam(avg('pel'))[2],sInfo=solids.map(s=>({s,cz:toCam([(s.x0+s.x1)/2,s.y0+s.h/2,(s.z0+s.z1)/2])[2]})).sort((a,b)=>b.cz-a.cz);
+ const drawSolid=s=>{const y0=s.y0,y1=y0+s.h,rf=s.roof,cs=[[s.x0,s.z0],[s.x1,s.z0],[s.x1,s.z1],[s.x0,s.z1]],ctr=[(s.x0+s.x1)/2,(y0+y1+rf)/2,(s.z0+s.z1)/2],faces=[];
+  for(let i=0;i<4;i++){const a=cs[i],b=cs[(i+1)%4],oo=[a[0],y0,a[1]],U=[b[0]-a[0],0,b[1]-a[1]],V=[0,s.h,0];faces.push({pts:[oo,add(oo,U),add(add(oo,U),V),add(oo,V)],w:{o:oo,U,V,i}})}
+  if(rf>0){const lg=(s.x1-s.x0)>=(s.z1-s.z0),xm=(s.x0+s.x1)/2,zm=(s.z0+s.z1)/2,pk=y1+rf;
+   if(lg){const A=[s.x0,pk,zm],B=[s.x1,pk,zm];faces.push({pts:[[s.x0,y1,s.z0],[s.x1,y1,s.z0],B,A]},{pts:[[s.x1,y1,s.z1],[s.x0,y1,s.z1],A,B]},{pts:[[s.x0,y1,s.z0],[s.x0,y1,s.z1],A]},{pts:[[s.x1,y1,s.z0],[s.x1,y1,s.z1],B]})}
+   else{const A=[xm,pk,s.z0],B=[xm,pk,s.z1];faces.push({pts:[[s.x0,y1,s.z0],[s.x0,y1,s.z1],B,A]},{pts:[[s.x1,y1,s.z1],[s.x1,y1,s.z0],A,B]},{pts:[[s.x0,y1,s.z0],[s.x1,y1,s.z0],A]},{pts:[[s.x0,y1,s.z1],[s.x1,y1,s.z1],B]})}}
+  else faces.push({pts:cs.map(c=>[c[0],y1,c[1]])});
+  faces.forEach(fc=>fc.pr=fc.pts.map(proj));if(faces.some(fc=>fc.pr.some(q=>!q)))return;
+  faces.forEach(fc=>{const p0=fc.pts[0],n0=cross(sub(fc.pts[1],p0),sub(fc.pts[2],p0)),n=dot(n0,sub(p0,ctr))<0?mul(n0,-1):n0;if(dot(n,sub(cam,p0))<=0)return;
+   ctx.beginPath();fc.pr.forEach((q,j)=>j?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();ctx.globalAlpha=1;ctx.fillStyle='rgba(255,255,255,.97)';ctx.fill();stroke(col,1.2,.75);ctx.stroke();
+   if(!fc.w||s.nowin)return;
+   const{o:oo,U,V,i}=fc.w,len=Math.hypot(U[0],U[2]),nf=Math.max(1,Math.round(s.h/s.fh)),nc=Math.max(1,Math.round(len/s.cw)),hasDoor=i===s.door&&s.h>2.4;
+   const Q=(u,v)=>proj(add(oo,add(mul(U,u),mul(V,v)))),wr=(u0,u1,v0,v1,fl)=>{const q=[Q(u0,v0),Q(u1,v0),Q(u1,v1),Q(u0,v1)];if(q.some(z=>!z))return;ctx.beginPath();q.forEach((z,j)=>j?ctx.lineTo(z.x,z.y):ctx.moveTo(z.x,z.y));ctx.closePath();ctx.globalAlpha=1;ctx.fillStyle=fl;ctx.fill();stroke(col,.8,.55);ctx.stroke()};
+   if(hasDoor){const du=Math.min(.5/len,.2);wr(.5-du,.5+du,0,Math.min(.9,2.1/s.h),'rgba(120,90,60,.22)')}
+   for(let fl=0;fl<nf;fl++){if(hasDoor&&fl===0&&s.wst==='ribbon')continue;
+    if(s.wst==='ribbon')wr(.05,.95,(fl+.3)/nf,(fl+.75)/nf,'rgba(120,160,200,.2)');
+    else for(let c=0;c<nc;c++){if(hasDoor&&fl===0&&c===Math.floor(nc/2))continue;wr((c+.22)/nc,(c+.78)/nc,(fl+.28)/nf,(fl+.78)/nf,'rgba(120,160,200,.2)')}}})};
+ const nearSol=sInfo.filter(e=>!e.s.nowin&&!e.s.roof).sort((a,b)=>a.cz-b.cz).slice(0,5);
+ const conv=()=>{if(!o.persp)return;nearSol.forEach(({s})=>{const ya=s.y0,yb=ya+s.h,E=[];
+  [ya,yb].forEach(y=>E.push([[s.x0,y,s.z0],[s.x1,y,s.z0],0],[[s.x0,y,s.z1],[s.x1,y,s.z1],0],[[s.x0,y,s.z0],[s.x0,y,s.z1],1],[[s.x1,y,s.z0],[s.x1,y,s.z1],1]));
+  if(VPS[2])[[s.x0,s.z0],[s.x1,s.z0],[s.x1,s.z1],[s.x0,s.z1]].forEach(c=>E.push([[c[0],ya,c[1]],[c[0],yb,c[1]],2]));
+  E.forEach(([a,b,k])=>{const V=VPS[k]&&VPS[k][3];if(!V||Math.hypot(V.x-cx,V.y-cy)>3e4)return;const pa=proj(a),pb=proj(b);if(!pa||!pb)return;
+   const p=Math.hypot(pa.x-V.x,pa.y-V.y)>Math.hypot(pb.x-V.x,pb.y-V.y)?pa:pb;stroke(VPS[k][2],.9,.4,[7,5]);seg(p,V)})})};
+ sInfo.filter(e=>e.cz>cenZ).forEach(e=>drawSolid(e.s));
+ /* ホライゾン・消失点・収束線 */
+ if(o.persp){conv();
+  const psi=Math.atan2(f[0],f[2]),h1=vp([Math.sin(psi+.55),0,Math.cos(psi+.55)]),h2=vp([Math.sin(psi-.55),0,Math.cos(psi-.55)]);
+  if(h1&&h2&&Math.hypot(h1.x-h2.x,h1.y-h2.y)>1){const dx=h2.x-h1.x,dy=h2.y-h1.y,l=Math.hypot(dx,dy);stroke('#e07a1f',1.6,.8,[8,5]);seg({x:h1.x-dx/l*9*W,y:h1.y-dy/l*9*W},{x:h1.x+dx/l*9*W,y:h1.y+dy/l*9*W});
+   if(Math.abs(dx)>1e-6){const yy=h1.y+(0-h1.x)*dy/dx;if(yy>10&&yy<H-10){ctx.setLineDash([]);ctx.globalAlpha=.9;ctx.fillStyle='#e07a1f';ctx.font=`${W/52}px sans-serif`;ctx.fillText('HL(アイレベル)',8*lw,yy-6*lw)}}}
+  ctx.setLineDash([]);ctx.font=`${W/52}px sans-serif`;
+  VPS.forEach(([t,d,c,v])=>{if(v&&v.x>-W&&v.x<2*W&&v.y>-H&&v.y<2*H){stroke(c,1.5,.9);ctx.beginPath();ctx.arc(v.x,v.y,7*lw,0,7);ctx.moveTo(v.x-12*lw,v.y);ctx.lineTo(v.x+12*lw,v.y);ctx.moveTo(v.x,v.y-12*lw);ctx.lineTo(v.x,v.y+12*lw);ctx.stroke();ctx.fillStyle=c;ctx.fillText(t,v.x+10*lw,v.y-8*lw)}})}
+ /* 影 */
+ if(o.cog)chars.forEach(c=>{const P=c.fr.P,ce=[P.pel[0],0,P.pel[2]],pts=[];for(let i=0;i<40;i++){const a=i/40*6.2832,q=proj(add(ce,[Math.cos(a)*.42*c.sc,0,Math.sin(a)*.42*c.sc]));if(q)pts.push(q)}
+  if(pts.length>3){ctx.globalAlpha=.09;ctx.fillStyle='#000';ctx.beginPath();pts.forEach((q,i)=>i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.fill()}});
+ /* スツール */
+ chars.forEach(ch=>{if(!ch.p.seat)return;const P=ch.fr.P,s=ch.sc,y=P.pel[1]-.1*s,c=[P.pel[0],y,P.pel[2]],M=Ry(ch.yaw*D),q=[[-.22,-.2],[.22,-.2],[.22,.22],[-.22,.22]].map(([a,b])=>add(c,ap(M,[a*s,0,(b+.02)*s])));
+  stroke(col,1.2,.55);for(let i=0;i<4;i++){line3(q[i],q[(i+1)%4]);line3(q[i],[q[i][0],0,q[i][2]])}});
+ /* スピード線 */
+ if(mt.speed){const r=rng(S.ps*3+5),c0_=chars[0],fw=[Math.sin(c0_.yaw*D),0,Math.cos(c0_.yaw*D)],pc=avg('pel'),sp=Math.max(1,S.rad);stroke('#e07a1f',1,.6);
+  for(let i=0;i<28;i++){const p3=add([pc[0]+(r()-.5)*1.7*sp,Math.max(.05,pc[1]+(r()-.5)*2),pc[2]+(r()-.5)*1.7*sp],mul(fw,-.1-r()*.5)),L=(.5+r()*1.4)*(.4+S.mot),a=proj(p3),b=proj(add(p3,mul(fw,-L)));if(a&&b){ctx.lineWidth=(.5+r()*1.4)*lw;seg(a,b)}}}
+ /* 残像 */
+ const sd=(Pg,al)=>{stroke(col,1.6,al);BONES.forEach(([a,b])=>{const A=proj(Pg[a]),B=proj(Pg[b]);if(A&&B)seg(A,B)});const h=proj(Pg.head);if(h){ctx.beginPath();ctx.arc(h.x,h.y,.11*h.k,0,6.2832);ctx.stroke()}};
+ if(mt.ghost)chars.forEach(ch=>[.2,.45,.7].forEach(t=>sd(frameAt(ch,t,S.mot),.15+.3*t)));
+ /* 立体パーツ */
+ const items=[],ring=(c,ax,ay,n=28,ph=0)=>{const r=[];for(let i=0;i<n;i++){const a=(i+ph)/n*6.2832;r.push(proj(add(c,add(mul(ax,Math.cos(a)),mul(ay,Math.sin(a))))))}return r};
+ const fillIt=w=>{if(CL){ctx.globalAlpha=1;ctx.fillStyle=CL.f;ctx.fill();stroke(CL.l,1.2,.9);ctx.stroke();return}if(sil){ctx.globalAlpha=.4;ctx.fillStyle=col;ctx.fill()}else{ctx.globalAlpha=1;ctx.fillStyle=FILL;ctx.fill();stroke(col,w||1.3);ctx.stroke()}};
+ let P,J,SCL=1;
+ const pk=k=>typeof k==='string'?P[k]:k;let CL=null;const cap=(a,b,ra,rb,cl)=>{if(lite&&!cl)return;ra*=SCL;rb*=SCL;const pa=proj(pk(a)),pb=proj(pk(b));if(!pa||!pb)return;items.push({z:(pa.z+pb.z)/2-(cl?.03:0),fn:()=>{CL=cl||null;
+  const A=ra*pa.k,B=rb*pb.k,d=Math.hypot(pb.x-pa.x,pb.y-pa.y)||1,th=Math.atan2(pb.y-pa.y,pb.x-pa.x);ctx.beginPath();
+  if(st==='box'){const nx=-(pb.y-pa.y)/d,ny=(pb.x-pa.x)/d;ctx.moveTo(pa.x+nx*A,pa.y+ny*A);ctx.lineTo(pb.x+nx*B,pb.y+ny*B);ctx.lineTo(pb.x-nx*B,pb.y-ny*B);ctx.lineTo(pa.x-nx*A,pa.y-ny*A);ctx.closePath()}
+  else if(st==='joint')ctx.ellipse((pa.x+pb.x)/2,(pa.y+pb.y)/2,d/2+A*.2,(A+B)*.42,th,0,6.2832);
+  else{const ph=Math.acos(Math.max(-1,Math.min(1,(A-B)/d)));ctx.arc(pa.x,pa.y,A,th+ph,th-ph+6.2832);ctx.arc(pb.x,pb.y,B,th-ph,th+ph);ctx.closePath()}
+  fillIt();
+  if(st==='joint'&&!CL)[[pa,A],[pb,B]].forEach(([q,r])=>{ctx.beginPath();ctx.arc(q.x,q.y,r*.72,0,6.2832);fillIt()});CL=null}})};
+ const vol=(cT,cB,rxT,rzT,rxB,rzB,M,cl)=>{if(lite&&!cl)return;rxT*=SCL;rzT*=SCL;rxB*=SCL;rzB*=SCL;const bx=st==='box',n=bx?4:28,k=bx?1.414:1,ph=bx?.5:0,X=ap(M,[1,0,0]),Z=ap(M,[0,0,1]),rt=ring(cT,mul(X,rxT*k),mul(Z,rzT*k),n,ph),rb=ring(cB,mul(X,rxB*k),mul(Z,rzB*k),n,ph);if(rt.concat(rb).some(q=>!q))return;
+  const cz=proj(mul(add(cT,cB),.5));if(!cz)return;items.push({z:cz.z-(cl?.03:0),fn:()=>{CL=cl||null;const h=hull(rt.concat(rb).map(q=>[q.x,q.y]));ctx.beginPath();h.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.closePath();fillIt(1.4);
+   if(sil||CL){CL=null;return}[rt,rb].forEach(r=>{stroke(col,1,.5);ctx.beginPath();r.forEach((q,i)=>i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();ctx.stroke()});
+   if(bx){stroke(col,1,.5);rt.forEach((q,i)=>seg(q,rb[i]))}
+   const a=proj(add(cT,mul(Z,rzT))),b=proj(add(cB,mul(Z,rzB)));if(a&&b){stroke('#2a9d6f',1.4,.9);seg(a,b)}}})};
+ const head=()=>{const c=P.head,M=J.Rh,r=.11*SCL,pc=proj(c);if(!pc)return;const X=mul(ap(M,[1,0,0]),r),Y=mul(ap(M,[0,1,0]),r),Z=mul(ap(M,[0,0,1]),r);
+  items.push({z:pc.z,fn:()=>{ctx.beginPath();ctx.arc(pc.x,pc.y,r*pc.k,0,6.2832);fillIt(1.4);if(sil)return;
+   const tc=sub(cam,c),rg=(ax,ay,w,clr)=>{for(let i=0;i<40;i++){const a0=i/40*6.2832,a1=(i+1)/40*6.2832,q0=add(c,add(mul(ax,Math.cos(a0)),mul(ay,Math.sin(a0)))),q1=add(c,add(mul(ax,Math.cos(a1)),mul(ay,Math.sin(a1)))),fr=dot(sub(mul(add(q0,q1),.5),c),tc)>0,p0=proj(q0),p1=proj(q1);if(p0&&p1){stroke(clr,w,fr?.95:.25,fr?null:[3,3]);seg(p0,p1)}}};
+   if(!lite){rg(X,Z,1.2,col);rg(Y,X,1,col)}rg(Y,Z,1.6,'#d94f4f');
+   const nose=[proj(add(c,Z)),proj(add(c,mul(Z,1.25)))];if(nose[0]&&nose[1]){stroke('#d94f4f',2);seg(nose[0],nose[1])}
+   if(!lite){const ch=proj(add(c,add(mul(Y,-1.3),mul(Z,.4)))),sl=proj(add(c,add(add(mul(X,.95),mul(Y,-.3)),mul(Z,.2)))),sr2=proj(add(c,add(add(mul(X,-.95),mul(Y,-.3)),mul(Z,.2))));
+    if(ch&&sl&&sr2){stroke(col,1.2,.8);seg(sl,ch);seg(sr2,ch)}}}})};
+ const CC={f:'rgba(255,160,70,.28)',l:'#c0661a'},CI={f:'rgba(140,100,230,.3)',l:'#7048c8'},Y=[0,1,0];
+ const bs=d=>{d=norm(d);const h=Math.abs(d[1])>.9?[1,0,0]:Y,X=norm(cross(h,d)),Z=cross(d,X);return[X[0],d[0],Z[0],X[1],d[1],Z[1],X[2],d[2],Z[2]]};
+ const vA=(a,b,ra,rb,cl)=>vol(a,b,ra,ra,rb,rb,bs(sub(b,a)),cl);
+ const bx=(c,X,Yv,Z,hx,hy,hz,cl)=>{hx*=SCL;hy*=SCL;hz*=SCL;const q=[];for(const a of[-1,1])for(const b of[-1,1])for(const d of[-1,1])q.push(proj(add(c,add(add(mul(X,a*hx),mul(Yv,b*hy)),mul(Z,d*hz)))));const pc=proj(c);if(!pc||q.some(z=>!z))return;items.push({z:pc.z-.03,fn:()=>{CL=cl;const h=hull(q.map(z=>[z.x,z.y]));ctx.beginPath();h.forEach((z,i)=>i?ctx.lineTo(z[0],z[1]):ctx.moveTo(z[0],z[1]));ctx.closePath();fillIt();stroke(cl.l,.8,.6);for(let i=0;i<8;i++)for(const k of[1,2,4])if(!(i&k))seg(q[i],q[i|k]);CL=null}})};
+ const ball=(c,r,cl)=>{const pc=proj(c);if(!pc)return;const rr=r*SCL*pc.k;items.push({z:pc.z-.03,fn:()=>{CL=cl;ctx.beginPath();ctx.arc(pc.x,pc.y,rr,0,6.2832);fillIt();CL=null}})};
+ const dress=ch=>{const c=cfg(S.chars.indexOf(ch)),{Rc,Rp,Rh}=J,s=SCL,L=(a,b,t)=>add(a,mul(sub(b,a),t)),A=(p,M,v)=>add(p,ap(M,mul(v,s))),t=c.top,b=c.bot;
+  if($('clon').checked&&!lite){
+   if(t){const k=t>=3?1.18:1.1,g=t>=3?1.1:1;vol(A(P.nb,Rc,[0,.02,0]),P.waist,.19*k,.12*k,.15*k,.1*k,Rc,CC);if(t>=3)vol(P.waist,A(P.pel,Rp,[0,-.14,0]),.16*k,.11*k,.16*k,.11*k,Rp,CC);
+    if(t===5)vol(A(P.pel,Rp,[0,-.08,0]),A(P.pel,Rp,[0,-.62,0]),.19,.14,.27,.2,Rp,CC);
+    if(t===4)vol(A(P.nb,Rc,[0,.07,-.07]),A(P.nb,Rc,[0,-.04,-.04]),.09,.07,.13,.08,Rc,CC);
+    for(let i=0;i<2;i++){cap('sh'+i,t===1?L(P['sh'+i],P['el'+i],.55):'el'+i,.066*g,t===1?.06:.058*g,CC);if(t>1)cap('el'+i,'wr'+i,.056*g,.046,CC)}}
+   if(b){if(b<3){vol(P.waist,A(P.pel,Rp,[0,-.09,0]),.16,.11,.16,.11,Rp,CC);for(let i=0;i<2;i++){cap('hp'+i,b===1?L(P['hp'+i],P['kn'+i],.5):'kn'+i,.1,b===1?.092:.076,CC);if(b===2)cap('kn'+i,'an'+i,.076,.056,CC)}}
+    else{const d=b===3?.38:.75,r=b===3?.25:.31;vol(A(P.pel,Rp,[0,.05,0]),A(P.pel,Rp,[0,-d,0]),.16,.11,r,r*.8,Rp,CC)}}
+   for(let i=0;i<2;i++)if(c.shoe){cap('an'+i,'toe'+i,.058,.042,CC);if(c.shoe===2)cap(L(P['kn'+i],P['an'+i],.5),'an'+i,.062,.054,CC)}
+   if(c.hat){const H=v=>A(P.head,Rh,v),h=c.hat,r=h===3?.05:.06;vol(H([0,.115,0]),H([0,h===3?-.005:.02,0]),r,r,.122,.122,Rh,CC);if(h===1)vol(H([0,.05,.13]),H([0,.045,.09]),.07,.06,.08,.04,Rh,CC);if(h===2)vol(H([0,.05,0]),H([0,.045,0]),.25,.25,.25,.25,Rh,CC)}}
+  if($('iton').checked){const h=c.hold,ia=c.hand===1?0:c.hand===2?1:ch.ikArms.includes(0)?1:0;
+   if(h&&!ch.ikArms.includes(ia)){const hd=P['hd'+ia],fd=norm(sub(hd,P['wr'+ia])),fw=ap(Rc,[0,0,1]),M=Ry(ch.yaw*D),Xw=ap(M,[1,0,0]),Zw=ap(M,[0,0,1]),dn=v=>sub(hd,mul(Y,v*s)),P3=(d,v)=>add(hd,mul(d,v*s));
+    if(h===1){const d=norm(add(Y,mul(fd,.25)));vA(P3(d,-.18),P3(d,.7),.012,.012,CI);vol(P3(d,.76),P3(d,.58),.01,.01,.46,.46,bs(d),CI)}
+    else if(h===2){const d=norm(add(fd,mul(fw,.9)));vA(P3(d,-.08),P3(d,.9),.018,.012,CI);vA(P3(d,.08),P3(d,.1),.07,.07,CI)}
+    else if(h===3){const d=norm(add(Y,mul(fd,.15))),y=Math.max(hd[1],.1);vA(sub(hd,mul(d,y/d[1])),P3(d,.5),.016,.016,CI)}
+    else if(h===4)ball(P3(fd,.1),.1,CI);
+    else if(h===5||h===7){let X=cross(fd,Y);if(Math.hypot(...X)<.3)X=cross(fd,[1,0,0]);X=norm(X);const Z=cross(X,fd);h===5?bx(P3(fd,.08),X,fd,Z,.09,.11,.015,CI):bx(P3(fd,.05),X,fd,Z,.035,.07,.008,CI)}
+    else if(h===6)vA(dn(.05),P3(Y,.06),.035,.048,CI);
+    else if(h===8)bx(dn(.2),Xw,Y,Zw,.1,.15,.06,CI);
+    else if(h===9)bx(dn(.12),Xw,Y,Zw,.13,.08,.04,CI);
+    else if(h===10){vA(dn(.04),P3(Y,.22),.02,.13,CI);ball(P3(Y,.26),.09,CI)}}
+   if(c.back===1)bx(A(P.nb,Rc,[0,-.17,-.15]),ap(Rc,[1,0,0]),ap(Rc,Y),ap(Rc,[0,0,1]),.15,.2,.08,CI);
+   if(c.back===2){const bc=A(P.hp0,Rp,[-.1,.02,0]);bx(bc,ap(Rp,[1,0,0]),ap(Rp,Y),ap(Rp,[0,0,1]),.05,.09,.11,CI);cap('sh1',add(bc,[0,.08*s,0]),.012,.012,CI)}}};
+ chars.forEach(ch=>{P=ch.fr.P;J=ch.fr;SCL=ch.sc;
+  cap('nb','nk',.045,.04);
+  vol(add(P.nb,ap(J.Rc,[0,-.03*SCL,0])),add(P.waist,ap(J.Rc,[0,.04*SCL,0])),.17,.1,.14,.09,J.Rc);
+  vol(P.waist,add(P.pel,ap(J.Rp,[0,-.09*SCL,0])),.15,.1,.15,.1,J.Rp);
+  for(let i=0;i<2;i++){cap('sh'+i,'el'+i,.05,.042);cap('el'+i,'wr'+i,.042,.032);cap('wr'+i,'hd'+i,.034,.03);cap('hp'+i,'kn'+i,.085,.062);cap('kn'+i,'an'+i,.062,.042);cap('an'+i,'toe'+i,.045,.03)}
+  head();dress(ch)});
+ items.sort((a,b)=>b.z-a.z).forEach(it=>it.fn());
+ /* 骨格・関節・重心線 */
+ chars.forEach(ch=>{const P=ch.fr.P,pp=k=>proj(P[k]);
+  if(o.bone||lite){const bl=(a,b,c,w)=>{const A=pp(a),B=pp(b);if(A&&B){stroke(c,w,.95);seg(A,B)}};
+   if(st!=='gesture')bl('pel','nb','#2a9d6f',2.4);bl('nb','nk','#2a9d6f',2);bl('sh0','sh1','#d94f4f',3);bl('hp0','hp1','#d94f4f',3);
+   for(let i=0;i<2;i++)[['sh','el'],['el','wr'],['wr','hd'],['hp','kn'],['kn','an'],['an','toe']].forEach(([a,b])=>bl(a+i,b+i,col,lite?2.2:1.6))}
+  if(st==='gesture'){const an=P.an0[1]<P.an1[1]?'an0':'an1',q=[P.head,P.nb,P.pel,P[an]].map(proj);if(q.every(Boolean)){stroke('#d94f4f',4.5,.9);ctx.beginPath();ctx.moveTo(q[0].x,q[0].y);ctx.quadraticCurveTo(q[1].x,q[1].y,(q[1].x+q[2].x)/2,(q[1].y+q[2].y)/2);ctx.quadraticCurveTo(q[2].x,q[2].y,q[3].x,q[3].y);ctx.stroke()}}
+  if(o.joint){ctx.setLineDash([]);for(const k in P){if(['waist','nk','head','toe0','toe1','hd0','hd1'].includes(k))continue;const q=pp(k);if(!q)continue;ctx.beginPath();ctx.arc(q.x,q.y,Math.max(3,.028*ch.sc*q.k)*(k==='pel'||k==='nb'?1.4:1),0,6.2832);ctx.globalAlpha=1;ctx.fillStyle='#fff';ctx.fill();stroke('#d94f4f',1.5);ctx.stroke()}}
+  if(o.cog){const a=pp('pel'),b=proj([P.pel[0],0,P.pel[2]]);if(a&&b){stroke('#2a9d6f',1.4,.9,[6,5]);seg(a,b);ctx.setLineDash([]);ctx.beginPath();ctx.arc(b.x,b.y,4*lw,0,6.2832);ctx.fillStyle='#2a9d6f';ctx.globalAlpha=.9;ctx.fill()}}
+  /* 軌跡(手足の弧) */
+  if(mt.trail&&S.mot>0){const N=10,fr=[];for(let i=0;i<=N;i++)fr.push(frameAt(ch,i/N,S.mot));
+   ['hd0','hd1','toe0','toe1'].forEach(k=>{if(k[0]==='h'&&ch.ikArms.includes(+k[2]))return;const pts=fr.map(F=>proj(F[k]));if(pts.some(q=>!q)||Math.hypot(pts[0].x-pts[N].x,pts[0].y-pts[N].y)<14*lw)return;
+    for(let j=0;j<N;j++){stroke('#e07a1f',.8+3*j/N,.15+.8*j/N);seg(pts[j],pts[j+1])}})}});
+ /* 手前の建物 */
+ sInfo.filter(e=>e.cz<=cenZ).forEach(e=>drawSolid(e.s));
+ S.hp=[];chars.forEach((c,i)=>{const q=proj(add(c.fr.P.head,[0,.22*c.sc,0]));if(!q)return;S.hp[i]=q;if(!$('lbl').checked||chars.length<2)return;ctx.setLineDash([]);ctx.globalAlpha=.95;ctx.beginPath();ctx.arc(q.x,q.y,11*lw,0,6.2832);ctx.fillStyle=i===S.sel?'#e0701f':'#555';ctx.fill();ctx.fillStyle='#fff';ctx.font=`bold ${13*lw}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(i+1,q.x,q.y);ctx.textAlign='left';ctx.textBaseline='alphabetic'});
+if(o.memo){ctx.setLineDash([]);ctx.globalAlpha=.75;ctx.fillStyle='#777';ctx.font=`${W/55}px sans-serif`;ctx.textBaseline='bottom';ctx.fillText(`${S.sceneName}${chars.length>1?'('+chars.length+'人)':'/'+ARCH[chars[0].type].n}/${STN[st]} ${PTN[pt]} 方位${S.az}° 仰角${S.el}° パース${Math.round(S.pers*100)} 傾き${S.roll}° / ${{full:'全身',knee:'ひざ上',bust:'バスト'}[shot]}・${{third:'三分割',golden:'黄金比',center:'中央',diag:'対角線'}[cm]} / seed ${S.ps}-${S.cs}`,10*lw,H-8*lw)}
+ ctx.globalAlpha=1;ctx.setLineDash([]);
+}
+function resize(){const[a,b]=$('asp').value.split(':').map(Number),L=1200;if(a<b){cv.height=L;cv.width=Math.round(L*a/b)}else{cv.width=L;cv.height=Math.round(L*b/a)}}
+
+/* ---------- UI ---------- */
+const all_=()=>{genPose(rs());genCam(rs());render()};
+$('gen').onclick=all_;
+$('gp').onclick=()=>{genPose(rs());genScn(S.cs);sync();render()};
+$('gc').onclick=()=>{genCam(rs());render()};
+$('save').onclick=()=>{cv.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`atari_${S.sceneKey}_${S.ps}-${S.cs}.png`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)},'image/png')};
+$('lwm').oninput=render;$('mrand').onclick=()=>{['trail','ghost','speed','focus'].forEach(i=>$(i).checked=Math.random()<.5);render()};
+$('ptype').onchange=()=>{genPose(S.ps);genScn(S.cs);render()};
+$('scn').onchange=()=>{genPose(S.ps);genScn(S.cs);sync();render()};
+$('bkind').onchange=()=>{genScn(S.cs);render()};
+$('asp').onchange=()=>{resize();render()};
+$('pt').onchange=()=>{const v=$('pt').value;if(v==='auto'){genCam(rs());render();return}
+ S.pt=+v;const snap=a=>[0,90,180,-90,-180].reduce((b,c)=>Math.abs(c-a)<Math.abs(b-a)?c:b);
+ if(S.pt===1){S.az=snap(S.az);S.el=Math.max(-6,Math.min(22,S.el))}
+ else if(S.pt===2){if(S.az%90===0)S.az+=30;S.el=Math.max(-6,Math.min(24,S.el))}
+ else{if(Math.abs(S.el)<20)S.el=S.el<0?-25:35;S.sx=0}
+ genScn(S.cs);sync();render()};
+['comp','shot','col','vol','bone','joint','guide','persp','cog','memo','style','trail','ghost','speed','focus'].forEach(i=>$(i).onchange=render);
+[['mot','mot',.01],['az','az',1],['el','el',1],['pers','pers',.01],['roll','roll',1],['sx','sx',.01]].forEach(([i,k,m])=>$(i).oninput=e=>{S[k]=+e.target.value*m;
+ if(k==='az'&&S.pt===1&&S.az%90!==0){S.pt=2;$('pt').value='2'}
+ render()});
+$('seed').onkeydown=e=>{if(e.key==='Enter'){const m=$('seed').value.match(/\d+/g)||[];genPose(+m[0]||1);genCam(+m[1]||+m[0]||1);render()}};
+document.onkeydown=e=>{if(e.target.tagName==='INPUT'&&e.target.type==='text')return;if(e.target.tagName==='SELECT')return;
+ if(e.code==='Space'){e.preventDefault();all_()}else if(e.key==='p')$('gp').click();else if(e.key==='c')$('gc').click();else if(e.key==='s')$('save').click()};
+
+/* ---------- 人物ごとの設定(服・持ち物・自由配置) ---------- */
+S.sel=0;
+const OPT={top:['なし','Tシャツ','長袖','ジャケット','パーカー','ロングコート'],bot:['なし','短パン','ズボン','スカート','ロングスカート'],hat:['なし','キャップ','つば広帽','ニット帽'],shoe:['なし','靴','ブーツ'],hold:['なし','傘','剣','杖','ボール','本','カップ','スマホ','買い物袋','ハンドバッグ','花束'],hand:['おまかせ','右手','左手'],back:['なし','リュック','ショルダーバッグ']},LB={top:'上着',bot:'下',hat:'帽子',shoe:'靴',hold:'持ち物(手)',hand:'持つ手',back:'背負い/掛け'};
+const cfg=i=>(S.pc=S.pc||[])[i]||(S.pc[i]={pose:'random',top:0,bot:0,hat:0,shoe:0,hold:0,hand:0,back:0});
+const rndCl=R=>{const o={},g=(k,p)=>o[k]=R(0,1)<p?0:1+Math.floor(R(0,1)*(OPT[k].length-1));g('top',.1);g('bot',.1);g('hat',.6);g('shoe',.3);g('hold',.5);o.hand=Math.floor(R(0,1)*3);g('back',.7);return o};
+const spot=(R,n,pts)=>{let p,k=0;do{p=[R(-.5,.5)*(1.6+.5*n),R(-.5,.5)*(1.2+.35*n)];k++}while(k<60&&pts.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<.8));return p};
+(()=>{const d=$('pp');for(const k in OPT){const l=document.createElement('label'),e=document.createElement('select');l.textContent=LB[k];e.id='pp_'+k;OPT[k].forEach((t,i)=>e.add(new Option(t,i)));e.onchange=()=>{cfg(S.sel)[k]=+e.value;render()};l.appendChild(e);d.appendChild(l)}
+ $('pp_pose').add(new Option('おまかせ','random'));for(const k in ARCH)$('pp_pose').add(new Option(ARCH[k].n,k))})();
+function pp(){const t=$('tabs');S.sel=Math.min(S.sel,S.chars.length-1);t.innerHTML='';
+ S.chars.forEach((c,i)=>{const b=document.createElement('button');b.textContent=i+1;b.style.cssText='flex:0 0 34px;padding:4px'+(i===S.sel?';background:var(--ac);color:#fff':'');b.onclick=()=>{S.sel=i;pp();render()};t.appendChild(b)});
+ const c=S.chars[S.sel],f=cfg(S.sel),fr=S.sceneKey==='free';for(const k in OPT)$('pp_'+k).value=f[k];
+ $('pp_pose').value=fr?f.pose:c.type;$('pp_x').value=c.pos[0]*100;$('pp_z').value=c.pos[1]*100;$('pp_yaw').value=c.yaw;$('pp_sc').value=c.sc*100;
+ ['pose','x','z','yaw','sc'].forEach(k=>$('pp_'+k).disabled=!fr)}
+const ed=(id,f)=>$('pp_'+id).oninput=e=>{f(S.chars[S.sel],+e.target.value);layout();render()};
+ed('x',(c,v)=>c.pos[0]=v/100);ed('z',(c,v)=>c.pos[1]=v/100);ed('yaw',(c,v)=>c.yaw=v);ed('sc',(c,v)=>c.sc=v/100);
+const rnd=(a,b)=>a+(b-a)*Math.random(),rk=()=>{const ks=Object.keys(ARCH);return ks[Math.floor(Math.random()*ks.length)]};
+$('pp_pose').onchange=e=>{const f=cfg(S.sel),c=S.chars[S.sel];f.pose=e.target.value;S.chars[S.sel]=mkc(f.pose==='random'?rk():f.pose,rnd,rnd,{pos:c.pos,yaw:c.yaw,sc:c.sc});layout();pp();render()};
+$('nfree').oninput=()=>{if(S.sceneKey!=='free')return;const n=+$('nfree').value,ch=S.chars;ch.length=Math.min(ch.length,n);
+ while(ch.length<n){const f=cfg(ch.length);ch.push(mkc(f.pose==='random'?rk():f.pose,rnd,rnd,{pos:spot(rnd,n,ch.map(c=>c.pos)),yaw:rnd(-60,60),sc:rnd(.9,1.08)}));if($('clrand').checked)Object.assign(f,rndCl(rnd))}
+ layout();pp();render()};
+$('mkfree').onclick=()=>{$('scn').value='free';genPose(rs());genScn(S.cs);sync();render()};
+$('clr').onclick=()=>{Object.assign(cfg(S.sel),rndCl(rnd));pp();render()};
+$('clra').onclick=()=>{S.chars.forEach((c,i)=>Object.assign(cfg(i),rndCl(rnd)));pp();render()};
+['clon','iton','lbl'].forEach(i=>$(i).onchange=render);
+cv.onclick=e=>{const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)*cv.width/r.width,y=(e.clientY-r.top)*cv.height/r.height;let b=-1,d=1e9;(S.hp||[]).forEach((q,i)=>{const k=Math.hypot(q.x-x,q.y-y);if(k<d){d=k;b=i}});if(b>=0&&d<cv.width*.08){S.sel=b;pp();render()}};
+resize();all_();
+</script></body></html>
