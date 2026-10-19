@@ -5,9 +5,11 @@
 :root{--bg:#f1efea;--fg:#222;--pn:#fff;--bd:#d6d2c8;--ac:#2b6cb0}
 @media(prefers-color-scheme:dark){:root{--bg:#1b1c1f;--fg:#e8e8e8;--pn:#26282c;--bd:#3a3d43;--ac:#6aa8ff}}
 *{box-sizing:border-box}
-body{margin:0;font:14px/1.5 system-ui,"Hiragino Sans","Yu Gothic",sans-serif;background:var(--bg);color:var(--fg);display:flex;flex-wrap:wrap;gap:16px;padding:16px;align-items:flex-start}
-#side{width:300px;max-width:100%;background:var(--pn);border:1px solid var(--bd);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
-#main{flex:1;min-width:280px;display:flex;justify-content:center}
+body{margin:0;font:14px/1.5 system-ui,"Hiragino Sans","Yu Gothic",sans-serif;background:var(--bg);color:var(--fg);display:flex;gap:16px;padding:16px;height:100vh;overflow:hidden;align-items:stretch}
+#side{flex:0 0 300px;width:300px;overflow-y:auto;max-height:100%;background:var(--pn);border:1px solid var(--bd);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+#side>*{flex-shrink:0}
+#main{flex:1;min-width:0;display:flex;justify-content:center;align-items:center;overflow:auto}
+@media(max-width:720px){body{flex-direction:column;height:auto;overflow:auto}#main{position:sticky;top:0;z-index:5;background:var(--bg);order:-1}#side{flex:none;width:100%;max-height:none;overflow:visible}canvas{max-height:48vh}}
 canvas{max-width:100%;max-height:calc(100vh - 32px);height:auto;background:#fff;border:1px solid var(--bd);box-shadow:0 2px 12px #0002}
 h1{font-size:16px;margin:0}
 button{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--pn);color:var(--fg);cursor:pointer}
@@ -16,7 +18,7 @@ button:hover{filter:brightness(1.08)}
 .row{display:flex;gap:6px}.row>*{flex:1}
 label{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
 label.c{justify-content:flex-start}
-select,input[type=text]{font:inherit;padding:4px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--pn);color:var(--fg);min-width:0}
+select,input[type=text],input[type=number]{font:inherit;padding:4px 6px;border-radius:6px;border:1px solid var(--bd);background:var(--pn);color:var(--fg);min-width:0}
 input[type=range]{width:150px}
 hr{border:0;border-top:1px solid var(--bd);width:100%;margin:2px 0}
 small{opacity:.65}
@@ -30,13 +32,17 @@ small{opacity:.65}
 <label>シーン<select id="scn"><option value="auto">おまかせ(1〜10人)</option></select></label>
 <label>ポーズ種類(1人用)<select id="ptype"><option value="random">おまかせ</option></select></label>
 <label>アタリの種類<select id="style"><option value="volume">円柱・球(ボリューム)</option><option value="joint">関節ボール(デッサン人形)</option><option value="box">箱型(ブロック)</option><option value="stick">棒人間</option><option value="silhouette">シルエット(塊)</option><option value="gesture">ジェスチャー(動勢線)</option></select></label>
-<label>キャンバス<select id="asp"><option>3:4</option><option>4:3</option><option>1:1</option><option>9:16</option><option>16:9</option></select></label>
+<label>キャンバス<select id="asp"><option>3:4</option><option>4:3</option><option>1:1</option><option>9:16</option><option>16:9</option><option value="custom">カスタム(px指定)</option></select></label>
+<label>サイズ(px) 幅×高さ<span class="row" style="flex:0 0 170px;align-items:center"><input type="number" id="cw" min="200" max="4000" style="width:72px">×<input type="number" id="chh" min="200" max="4000" style="width:72px"></span></label>
 <label>構図<select id="comp"><option value="auto">自動</option><option value="third">三分割</option><option value="golden">黄金比</option><option value="center">中央</option><option value="diag">対角線</option></select></label>
 <label>ショット(1人のみ)<select id="shot"><option value="auto">自動</option><option value="full">全身</option><option value="knee">ひざ上</option><option value="bust">バスト</option></select></label>
 <label>線の色<select id="col"><option value="#3b6cb0">青</option><option value="#c0392b">赤</option><option value="#555555">グレー</option><option value="#111111">黒</option></select></label>
 <hr>
 <label>パース種類<select id="pt"><option value="auto">おまかせ</option><option value="1">1点透視</option><option value="2">2点透視</option><option value="3">3点透視</option></select></label>
 <label>背景の建物<select id="bkind"><option value="auto">おまかせ</option><option value="none">なし</option><option value="street">街並み・路地</option><option value="corner">角(コーナー)</option><option value="single">単体の建物</option><option value="cluster">ビル群・家々</option></select></label>
+<label>建物の数<input type="range" id="bden" min="0" max="200" value="100"></label>
+<label>建物の規模<input type="range" id="bscl" min="50" max="250" value="100"></label>
+<label>地形<select id="terr"><option value="none">平地</option><option value="plat">段差・高台</option><option value="steps">階段</option><option value="rocks">岩場</option><option value="trees">並木</option></select></label>
 <label>方位<input type="range" id="az" min="-180" max="180"></label>
 <label>あおり/ふかん(目の高さ)<input type="range" id="el" min="-50" max="65"></label>
 <label>横ずれ(消失点の位置)<input type="range" id="sx" min="-200" max="200"></label>
@@ -242,7 +248,7 @@ function genPose(seed){const r=rng(seed),R=(a,b)=>a+(b-a)*r(),r2=rng(seed+7919),
  S.ps=seed;if($('clrand').checked){const r3=rng(seed+555),R3=(a,b)=>a+(b-a)*r3();S.chars.forEach((c,i)=>Object.assign(cfg(i),rndCl(R3)))}layout();pp()}
 
 /* ---------- 背景の建物(世界座標・軸平行ボックス) ---------- */
-function genScn(seed){
+function genScn0(seed){
  const r=rng(seed+31337),R=(a,b)=>a+(b-a)*r();let k=$('bkind').value;
  if(k==='auto'){const x=r();k=x<.16?'none':x<.5?'street':x<.68?'corner':x<.86?'single':'cluster'}
  S.bk=k;S.solids=[];if(k==='none')return;
@@ -269,6 +275,18 @@ function genScn(seed){
    rects.push([a0,a0+d,l0,l0+w]);const hh=house();box(a0,a0+d,l0,l0+w,hh?R(2.6,3.3):R(2.5,14),{roof:hh?R(.8,1.4):0,door:doorN(-ax[0],-ax[1])})}}
 }
 
+function genScn(seed){genScn0(seed);const r=rng(seed+777),R=(a,b)=>a+(b-a)*r(),sol=S.solids,dn=+$('bden').value/100,bs=+$('bscl').value/100,tr=$('terr').value,gr=S.rad+.7,az=S.az*D,dx=-Math.sin(az),dz=-Math.cos(az),
+ ax=Math.abs(dx)>Math.abs(dz)?[Math.sign(dx),0]:[0,Math.sign(dz)||1],lt=[-ax[1],ax[0]],P2=(a,l)=>[ax[0]*a+lt[0]*l,ax[1]*a+lt[1]*l];
+ const mk=(a0,a1,l0,l1,h,o={})=>{const p=P2(a0,l0),q=P2(a1,l1),t=Object.assign({x0:Math.min(p[0],q[0]),x1:Math.max(p[0],q[0]),z0:Math.min(p[1],q[1]),z1:Math.max(p[1],q[1]),h,y0:0,roof:0,fh:3,cw:1.6,wst:'grid',door:Math.floor(R(0,4))},o);
+  if(!o.f&&sol.some(s=>s.x0<t.x1+.5&&s.x1>t.x0-.5&&s.z0<t.z1+.5&&s.z1>t.z0-.5))return 0;sol.push(t);return 1};
+ for(let i=sol.length-1;i>=0;i--)if(dn<1&&r()>dn&&!sol[i].nowin)sol.splice(i,1);
+ sol.forEach(s=>{if(!s.nowin){s.h*=bs;s.roof*=bs}if(bs>1){s.x0*=bs;s.x1*=bs;s.z0*=bs;s.z1*=bs}});
+ if(S.bk!=='none'&&dn>1)for(let i=0,t=0,n=Math.round((dn-1)*8);i<n&&t++<n*15;){const a=gr+R(.8,18),l=R(-14,14);i+=mk(a,a+R(1.8,4.5),l,l+R(1.8,4.5),R(2.8,14)*bs)}
+ const N={nowin:1};
+ if(tr==='plat'){const h=R(.5,1.2),a=gr+R(1.5,3);mk(a,a+R(4,8),-R(3,6),R(3,6),h,{...N,f:1});mk(a-1.2,a,-R(2,4),R(2,4),h/2,{...N,f:1})}
+ else if(tr==='steps'){const a=gr+2,w=R(1.8,3);for(let i=0;i<7;i++)mk(a+i*.5,a+3.5,-w,w,.2*(i+1),{...N,f:1})}
+ else if(tr==='rocks'){for(let i=0,t=0;i<14&&t++<60;){const a=gr+R(.3,10),l=R(-9,9),w=R(.4,1.6);i+=mk(a,a+w,l,l+R(.4,1.6),R(.3,1.3),N)}}
+ else if(tr==='trees'){for(let a=-gr;a<gr+12;a+=R(2.2,3)){const l=(r()<.5?-1:1)*(gr+R(.8,1.6));mk(a,a+.25,l,l+.25,2.4,N)&&mk(a-.6,a+.85,l-.6,l+.85,1.6,{...N,y0:2.3})}}}
 /* ---------- カメラ ---------- */
 const PTN={1:'1点透視',2:'2点透視',3:'3点透視'};
 function genCam(seed){const r=rng(seed),R=(a,b)=>a+(b-a)*r();
@@ -465,7 +483,10 @@ function render(){
 if(o.memo){ctx.setLineDash([]);ctx.globalAlpha=.75;ctx.fillStyle='#777';ctx.font=`${W/55}px sans-serif`;ctx.textBaseline='bottom';ctx.fillText(`${S.sceneName}${chars.length>1?'('+chars.length+'人)':'/'+ARCH[chars[0].type].n}/${STN[st]} ${PTN[pt]} 方位${S.az}° 仰角${S.el}° パース${Math.round(S.pers*100)} 傾き${S.roll}° / ${{full:'全身',knee:'ひざ上',bust:'バスト'}[shot]}・${{third:'三分割',golden:'黄金比',center:'中央',diag:'対角線'}[cm]} / seed ${S.ps}-${S.cs}`,10*lw,H-8*lw)}
  ctx.globalAlpha=1;ctx.setLineDash([]);
 }
-function resize(){const[a,b]=$('asp').value.split(':').map(Number),L=1200;if(a<b){cv.height=L;cv.width=Math.round(L*a/b)}else{cv.width=L;cv.height=Math.round(L*b/a)}}
+function resize(){const v=$('asp').value,cl=x=>Math.max(200,Math.min(4000,Math.round(+x||0)));let w,h;
+ if(v==='custom'){w=cl($('cw').value||800);h=cl($('chh').value||1000)}
+ else{const[a,b]=v.split(':').map(Number),L=cl(Math.max($('cw').value,$('chh').value)||1200);if(a<b){h=L;w=Math.round(L*a/b)}else{w=L;h=Math.round(L*b/a)}}
+ cv.width=w;cv.height=h;$('cw').value=w;$('chh').value=h}
 
 /* ---------- UI ---------- */
 const all_=()=>{genPose(rs());genCam(rs());render()};
@@ -477,7 +498,8 @@ $('lwm').oninput=render;$('mrand').onclick=()=>{['trail','ghost','speed','focus'
 $('ptype').onchange=()=>{genPose(S.ps);genScn(S.cs);render()};
 $('scn').onchange=()=>{genPose(S.ps);genScn(S.cs);sync();render()};
 $('bkind').onchange=()=>{genScn(S.cs);render()};
-$('asp').onchange=()=>{resize();render()};
+$('asp').onchange=()=>{resize();render()};$('cw').onchange=$('chh').onchange=()=>{$('asp').value='custom';resize();render()};
+['bden','bscl','terr'].forEach(i=>$(i).oninput=$(i).onchange=()=>{genScn(S.cs);render()});
 $('pt').onchange=()=>{const v=$('pt').value;if(v==='auto'){genCam(rs());render();return}
  S.pt=+v;const snap=a=>[0,90,180,-90,-180].reduce((b,c)=>Math.abs(c-a)<Math.abs(b-a)?c:b);
  if(S.pt===1){S.az=snap(S.az);S.el=Math.max(-6,Math.min(22,S.el))}
@@ -489,7 +511,7 @@ $('pt').onchange=()=>{const v=$('pt').value;if(v==='auto'){genCam(rs());render()
  if(k==='az'&&S.pt===1&&S.az%90!==0){S.pt=2;$('pt').value='2'}
  render()});
 $('seed').onkeydown=e=>{if(e.key==='Enter'){const m=$('seed').value.match(/\d+/g)||[];genPose(+m[0]||1);genCam(+m[1]||+m[0]||1);render()}};
-document.onkeydown=e=>{if(e.target.tagName==='INPUT'&&e.target.type==='text')return;if(e.target.tagName==='SELECT')return;
+document.onkeydown=e=>{if(e.target.tagName==='INPUT'&&(e.target.type==='text'||e.target.type==='number'))return;if(e.target.tagName==='SELECT')return;
  if(e.code==='Space'){e.preventDefault();all_()}else if(e.key==='p')$('gp').click();else if(e.key==='c')$('gc').click();else if(e.key==='s')$('save').click()};
 
 /* ---------- 人物ごとの設定(服・持ち物・自由配置) ---------- */
