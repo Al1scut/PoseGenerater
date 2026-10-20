@@ -48,6 +48,7 @@ small{opacity:.65}
 <label>横ずれ(消失点の位置)<input type="range" id="sx" min="-200" max="200"></label>
 <label>パース強度<input type="range" id="pers" min="0" max="100"></label>
 <label>傾き<input type="range" id="roll" min="-30" max="30"></label>
+<label>等身(頭身) <span id="hv">8</span><input type="range" id="heads" min="3" max="10" step="0.5" value="8"></label>
 <hr><b>体の傾き(全員に加算)</b>
 <label>前後の傾き<input type="range" id="tw_lean" min="-40" max="40" value="0"></label>
 <label>横の傾き<input type="range" id="tw_side" min="-40" max="40" value="0"></label>
@@ -82,7 +83,8 @@ small{opacity:.65}
 <label>X位置<input type="range" id="pp_x" min="-300" max="300"></label>
 <label>奥行<input type="range" id="pp_z" min="-250" max="250"></label>
 <label>向き<input type="range" id="pp_yaw" min="-180" max="180"></label>
-<label>大きさ<input type="range" id="pp_sc" min="60" max="130"></label></div>
+<label>大きさ<input type="range" id="pp_sc" min="60" max="130"></label>
+<label>等身(0=全体) <span id="pp_hv">0</span><input type="range" id="pp_heads" min="0" max="10" step="0.5" value="0"></label></div>
 <small>ポーズ・位置は「自由配置」シーンのみ。服と持ち物は全シーンで使えます。</small>
 <div class="row"><button id="clr">この人の服ランダム</button><button id="clra">全員の服ランダム</button></div>
 <label class="c"><input type="checkbox" id="clon" checked>服を表示</label>
@@ -131,7 +133,7 @@ for(const k in ARCH){const o=document.createElement('option');o.value=k;o.textCo
 function build(p){
  const Rp=mm(Rx(p.lean*D),Rz(p.tilt*D)),Rc=mm(mm(mm(Rp,Rx(p.bend*D)),Ry(p.twist*D)),Rz(p.side*D)),Rh=mm(mm(mm(Rc,Rx(p.nod*D)),Ry(p.turn*D)),Rz(p.hz*D));
  const P={};P.pel=[0,1,0];P.waist=add(P.pel,ap(Rp,[0,.1,0]));P.nb=add(P.waist,ap(Rc,[0,.38,0]));
- P.nk=add(P.nb,ap(Rh,[0,.09,0]));P.head=add(P.nb,ap(Rh,[0,.19,0]));
+ P.nk=add(P.nb,ap(Rh,[0,.09,0]));const hk=p.hk||1;P.head=add(P.nb,ap(Rh,[0,.08+.11*hk,0]));
  for(let i=0;i<2;i++){const s=i?1:-1,q=p.arm[i],l=p.leg[i];
   P['sh'+i]=add(P.nb,ap(Rc,[s*.19,-.04,0]));
   const u=norm(ap(Rc,ap(Rx(-q.f*D),ap(Rz(s*q.a*D),[0,-1,0]))));
@@ -147,7 +149,7 @@ function build(p){
  }
  let mn=1e9;for(const k of['an0','an1','toe0','toe1'])mn=Math.min(mn,P[k][1]);mn=Math.min(mn,P.kn0[1]-.05,P.kn1[1]-.05);
  const dy=-mn+(p.jump||0);for(const k in P)P[k][1]+=dy;
- return{P,Rp,Rc,Rh};
+ return{P,Rp,Rc,Rh,hk};
 }
 const S={mot:.6,az:0,el:10,pers:.6,roll:0,cpi:0,shotA:'full',cmA:'third',ps:1,cs:1,pt:2,sx:0,chars:[],solids:[],hs:2,rad:1};
 const both=(c,f)=>{f(c.p);f(c.alt);return c};
@@ -163,7 +165,7 @@ const sgn=a=>a?1:-1;
 /* ---------- キャラの配置変換 / 2ボーンIK ---------- */
 function xf(J,ch){const Y=Ry(ch.yaw*D),P={};
  for(const k in J.P){const q=ap(Y,mul(J.P[k],ch.sc));P[k]=[q[0]+ch.pos[0],q[1],q[2]+ch.pos[1]]}
- return{P,Rp:mm(Y,J.Rp),Rc:mm(Y,J.Rc),Rh:mm(Y,J.Rh),sc:ch.sc}}
+ return{P,Rp:mm(Y,J.Rp),Rc:mm(Y,J.Rc),Rh:mm(Y,J.Rh),sc:ch.sc,hk:J.hk}}
 function ik2(ch,i,T,pl){const P=ch.fr.P,s=ch.sc,S0=P['sh'+i],L1=.29*s,L2=.26*s,H=.1*s;
  const dir=norm(sub(T,S0));let W=sub(T,mul(dir,H));const wv=sub(W,S0),d=Math.hypot(...wv),u=norm(wv),dd=Math.min((L1+L2)*.985,Math.max(Math.abs(L1-L2)+.02,d));
  W=add(S0,mul(u,dd));const a=(L1*L1-L2*L2+dd*dd)/(2*dd),h=Math.sqrt(Math.max(0,L1*L1-a*a));
@@ -309,10 +311,12 @@ const STN={volume:'円柱球',joint:'関節ボール',box:'箱型',stick:'棒人
 const lp=(a,b,t)=>{if(typeof a==='number')return a+((typeof b==='number'?b:a)-a)*t;if(Array.isArray(a))return a.map((x,i)=>lp(x,b&&b[i],t));if(a&&typeof a==='object'){const o={};for(const k in a)o[k]=lp(a[k],b&&b[k],t);return o}return a};
 const BONES=[['pel','nb'],['nb','nk'],['sh0','sh1'],['hp0','hp1']];
 for(let i=0;i<2;i++)[['sh','el'],['el','wr'],['wr','hd'],['hp','kn'],['kn','an'],['an','toe']].forEach(([a,b])=>BONES.push([a+i,b+i]));
-S.tw={lean:0,side:0,twist:0,tilt:0,bend:0,head:0};
-const adj=(c,p)=>{const q=JSON.parse(JSON.stringify(p)),t=S.tw,j=c.tj||{};q.lean+=t.lean+(j.lean||0);q.side+=t.side+(j.side||0);q.twist+=t.twist+(j.twist||0);q.tilt+=t.tilt+(j.tilt||0);q.bend+=t.bend+(j.bend||0);q.hz+=t.head+(j.head||0);return q};
+S.tw={lean:0,side:0,twist:0,tilt:0,bend:0,head:0};S.heads=8;
+const hkOf=c=>{const f=cfg(S.chars.indexOf(c)),n=f.heads>=3?f.heads:S.heads;return 7.09/(Math.max(3,n)-1)};
+const adj=(c,p)=>{const q=JSON.parse(JSON.stringify(p)),t=S.tw,j=c.tj||{};q.hk=hkOf(c);q.lean+=t.lean+(j.lean||0);q.side+=t.side+(j.side||0);q.twist+=t.twist+(j.twist||0);q.tilt+=t.tilt+(j.tilt||0);q.bend+=t.bend+(j.bend||0);q.hz+=t.head+(j.head||0);return q};
 const TK=['lean','side','twist','tilt','bend','head'];
 function twSync(){TK.forEach(k=>$('tw_'+k).value=S.tw[k])}
+$('heads').oninput=e=>{S.heads=+e.target.value;$('hv').textContent=S.heads;layout();render()};
 TK.forEach(k=>$('tw_'+k).oninput=e=>{S.tw[k]=+e.target.value;layout();render()});
 $('twrand').onclick=()=>{const R=(a,b)=>a+Math.random()*(b-a);S.tw={lean:R(-15,20),side:R(-15,15),twist:R(-30,30),tilt:R(-12,12),bend:R(-15,20),head:R(-20,20)};
  S.chars.forEach(c=>{c.tj={lean:R(-8,8),side:R(-8,8),twist:R(-12,12),tilt:R(-6,6),bend:R(-8,8),head:R(-10,10)}});twSync();layout();render()};
@@ -339,7 +343,7 @@ function render(){
  const cr=Math.cos(S.roll*D),sr=Math.sin(S.roll*D),toCam=q=>{const r=sub(q,cam);return[dot(r,right),dot(r,up),dot(r,f)]};
  const c0=toCam(tgt),ox=c0[0]/c0[2],oy=c0[1]/c0[2];
  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
- all.concat(chars.map(c=>add(c.fr.P.head,[0,.12*c.sc,0]))).forEach(q=>{const c=toCam(q),x=c[0]/c[2]-ox,y=c[1]/c[2]-oy,a=x*cr-y*sr,b=x*sr+y*cr;x0=Math.min(x0,a);x1=Math.max(x1,a);y0=Math.min(y0,b);y1=Math.max(y1,b)});
+ all.concat(chars.map(c=>add(c.fr.P.head,[0,.12*c.sc*c.fr.hk,0]))).forEach(q=>{const c=toCam(q),x=c[0]/c[2]-ox,y=c[1]/c[2]-oy,a=x*cr-y*sr,b=x*sr+y*cr;x0=Math.min(x0,a);x1=Math.max(x1,a);y0=Math.min(y0,b);y1=Math.max(y1,b)});
  const focal=Math.min(.72*W/(x1-x0),.72*H/(y1-y0))*zoom;
  let[fx,fy]=compPt(cm,S.cpi),cx=fx*W,cy=fy*H;
  if(zoom===1){const L=cx+x0*focal,Rr=cx+x1*focal,T=cy-y1*focal,B=cy-y0*focal;if(L<.04*W)cx+=.04*W-L;if(Rr>.96*W)cx-=Rr-.96*W;if(T<.04*H)cy+=.04*H-T;if(B>.96*H)cy-=B-.96*H}
@@ -423,7 +427,7 @@ function render(){
    if(sil||CL){CL=null;return}[rt,rb].forEach(r=>{stroke(col,1,.5);ctx.beginPath();r.forEach((q,i)=>i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.closePath();ctx.stroke()});
    if(bx){stroke(col,1,.5);rt.forEach((q,i)=>seg(q,rb[i]))}
    const a=proj(add(cT,mul(Z,rzT))),b=proj(add(cB,mul(Z,rzB)));if(a&&b){stroke('#2a9d6f',1.4,.9);seg(a,b)}}})};
- const head=()=>{const c=P.head,M=J.Rh,r=.11*SCL,pc=proj(c);if(!pc)return;const X=mul(ap(M,[1,0,0]),r),Y=mul(ap(M,[0,1,0]),r),Z=mul(ap(M,[0,0,1]),r);
+ const head=()=>{const c=P.head,M=J.Rh,r=.11*SCL*J.hk,pc=proj(c);if(!pc)return;const X=mul(ap(M,[1,0,0]),r),Y=mul(ap(M,[0,1,0]),r),Z=mul(ap(M,[0,0,1]),r);
   items.push({z:pc.z,fn:()=>{ctx.beginPath();ctx.arc(pc.x,pc.y,r*pc.k,0,6.2832);fillIt(1.4);if(sil)return;
    const tc=sub(cam,c),rg=(ax,ay,w,clr)=>{for(let i=0;i<40;i++){const a0=i/40*6.2832,a1=(i+1)/40*6.2832,q0=add(c,add(mul(ax,Math.cos(a0)),mul(ay,Math.sin(a0)))),q1=add(c,add(mul(ax,Math.cos(a1)),mul(ay,Math.sin(a1)))),fr=dot(sub(mul(add(q0,q1),.5),c),tc)>0,p0=proj(q0),p1=proj(q1);if(p0&&p1){stroke(clr,w,fr?.95:.25,fr?null:[3,3]);seg(p0,p1)}}};
    if(!lite){rg(X,Z,1.2,col);rg(Y,X,1,col)}rg(Y,Z,1.6,'#d94f4f');
@@ -444,7 +448,7 @@ function render(){
    if(b){if(b<3){vol(P.waist,A(P.pel,Rp,[0,-.09,0]),.16,.11,.16,.11,Rp,CC);for(let i=0;i<2;i++){cap('hp'+i,b===1?L(P['hp'+i],P['kn'+i],.5):'kn'+i,.1,b===1?.092:.076,CC);if(b===2)cap('kn'+i,'an'+i,.076,.056,CC)}}
     else{const d=b===3?.38:.75,r=b===3?.25:.31;vol(A(P.pel,Rp,[0,.05,0]),A(P.pel,Rp,[0,-d,0]),.16,.11,r,r*.8,Rp,CC)}}
    for(let i=0;i<2;i++)if(c.shoe){cap('an'+i,'toe'+i,.058,.042,CC);if(c.shoe===2)cap(L(P['kn'+i],P['an'+i],.5),'an'+i,.062,.054,CC)}
-   if(c.hat){const H=v=>A(P.head,Rh,v),h=c.hat,r=h===3?.05:.06;vol(H([0,.115,0]),H([0,h===3?-.005:.02,0]),r,r,.122,.122,Rh,CC);if(h===1)vol(H([0,.05,.13]),H([0,.045,.09]),.07,.06,.08,.04,Rh,CC);if(h===2)vol(H([0,.05,0]),H([0,.045,0]),.25,.25,.25,.25,Rh,CC)}}
+   if(c.hat){const K=J.hk,H=v=>A(P.head,Rh,mul(v,K)),h=c.hat,r=(h===3?.05:.06)*K;vol(H([0,.115,0]),H([0,h===3?-.005:.02,0]),r,r,.122*K,.122*K,Rh,CC);if(h===1)vol(H([0,.05,.13]),H([0,.045,.09]),.07*K,.06*K,.08*K,.04*K,Rh,CC);if(h===2)vol(H([0,.05,0]),H([0,.045,0]),.25*K,.25*K,.25*K,.25*K,Rh,CC)}}
   if($('iton').checked){const h=c.hold,ia=c.hand===1?0:c.hand===2?1:ch.ikArms.includes(0)?1:0;
    if(h&&!ch.ikArms.includes(ia)){const hd=P['hd'+ia],fd=norm(sub(hd,P['wr'+ia])),fw=ap(Rc,[0,0,1]),M=Ry(ch.yaw*D),Xw=ap(M,[1,0,0]),Zw=ap(M,[0,0,1]),dn=v=>sub(hd,mul(Y,v*s)),P3=(d,v)=>add(hd,mul(d,v*s));
     if(h===1){const d=norm(add(Y,mul(fd,.25)));vA(P3(d,-.18),P3(d,.7),.012,.012,CI);vol(P3(d,.76),P3(d,.58),.01,.01,.46,.46,bs(d),CI)}
@@ -479,8 +483,8 @@ function render(){
     for(let j=0;j<N;j++){stroke('#e07a1f',.8+3*j/N,.15+.8*j/N);seg(pts[j],pts[j+1])}})}});
  /* 手前の建物 */
  sInfo.filter(e=>e.cz<=cenZ).forEach(e=>drawSolid(e.s));
- S.hp=[];chars.forEach((c,i)=>{const q=proj(add(c.fr.P.head,[0,.22*c.sc,0]));if(!q)return;S.hp[i]=q;if(!$('lbl').checked||chars.length<2)return;ctx.setLineDash([]);ctx.globalAlpha=.95;ctx.beginPath();ctx.arc(q.x,q.y,11*lw,0,6.2832);ctx.fillStyle=i===S.sel?'#e0701f':'#555';ctx.fill();ctx.fillStyle='#fff';ctx.font=`bold ${13*lw}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(i+1,q.x,q.y);ctx.textAlign='left';ctx.textBaseline='alphabetic'});
-if(o.memo){ctx.setLineDash([]);ctx.globalAlpha=.75;ctx.fillStyle='#777';ctx.font=`${W/55}px sans-serif`;ctx.textBaseline='bottom';ctx.fillText(`${S.sceneName}${chars.length>1?'('+chars.length+'人)':'/'+ARCH[chars[0].type].n}/${STN[st]} ${PTN[pt]} 方位${S.az}° 仰角${S.el}° パース${Math.round(S.pers*100)} 傾き${S.roll}° / ${{full:'全身',knee:'ひざ上',bust:'バスト'}[shot]}・${{third:'三分割',golden:'黄金比',center:'中央',diag:'対角線'}[cm]} / seed ${S.ps}-${S.cs}`,10*lw,H-8*lw)}
+ S.hp=[];chars.forEach((c,i)=>{const q=proj(add(c.fr.P.head,[0,.22*c.sc*c.fr.hk,0]));if(!q)return;S.hp[i]=q;if(!$('lbl').checked||chars.length<2)return;ctx.setLineDash([]);ctx.globalAlpha=.95;ctx.beginPath();ctx.arc(q.x,q.y,11*lw,0,6.2832);ctx.fillStyle=i===S.sel?'#e0701f':'#555';ctx.fill();ctx.fillStyle='#fff';ctx.font=`bold ${13*lw}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(i+1,q.x,q.y);ctx.textAlign='left';ctx.textBaseline='alphabetic'});
+if(o.memo){ctx.setLineDash([]);ctx.globalAlpha=.75;ctx.fillStyle='#777';ctx.font=`${W/55}px sans-serif`;ctx.textBaseline='bottom';ctx.fillText(`${S.sceneName}${chars.length>1?'('+chars.length+'人)':'/'+ARCH[chars[0].type].n}/${STN[st]} ${PTN[pt]} 方位${S.az}° 仰角${S.el}° パース${Math.round(S.pers*100)} 傾き${S.roll}° 等身${S.heads} / ${{full:'全身',knee:'ひざ上',bust:'バスト'}[shot]}・${{third:'三分割',golden:'黄金比',center:'中央',diag:'対角線'}[cm]} / seed ${S.ps}-${S.cs}`,10*lw,H-8*lw)}
  ctx.globalAlpha=1;ctx.setLineDash([]);
 }
 function resize(){const v=$('asp').value,cl=x=>Math.max(200,Math.min(4000,Math.round(+x||0)));let w,h;
@@ -517,17 +521,18 @@ document.onkeydown=e=>{if(e.target.tagName==='INPUT'&&(e.target.type==='text'||e
 /* ---------- 人物ごとの設定(服・持ち物・自由配置) ---------- */
 S.sel=0;
 const OPT={top:['なし','Tシャツ','長袖','ジャケット','パーカー','ロングコート'],bot:['なし','短パン','ズボン','スカート','ロングスカート'],hat:['なし','キャップ','つば広帽','ニット帽'],shoe:['なし','靴','ブーツ'],hold:['なし','傘','剣','杖','ボール','本','カップ','スマホ','買い物袋','ハンドバッグ','花束'],hand:['おまかせ','右手','左手'],back:['なし','リュック','ショルダーバッグ']},LB={top:'上着',bot:'下',hat:'帽子',shoe:'靴',hold:'持ち物(手)',hand:'持つ手',back:'背負い/掛け'};
-const cfg=i=>(S.pc=S.pc||[])[i]||(S.pc[i]={pose:'random',top:0,bot:0,hat:0,shoe:0,hold:0,hand:0,back:0});
+const cfg=i=>(S.pc=S.pc||[])[i]||(S.pc[i]={pose:'random',top:0,bot:0,hat:0,shoe:0,hold:0,hand:0,back:0,heads:0});
 const rndCl=R=>{const o={},g=(k,p)=>o[k]=R(0,1)<p?0:1+Math.floor(R(0,1)*(OPT[k].length-1));g('top',.1);g('bot',.1);g('hat',.6);g('shoe',.3);g('hold',.5);o.hand=Math.floor(R(0,1)*3);g('back',.7);return o};
 const spot=(R,n,pts)=>{let p,k=0;do{p=[R(-.5,.5)*(1.6+.5*n),R(-.5,.5)*(1.2+.35*n)];k++}while(k<60&&pts.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<.8));return p};
 (()=>{const d=$('pp');for(const k in OPT){const l=document.createElement('label'),e=document.createElement('select');l.textContent=LB[k];e.id='pp_'+k;OPT[k].forEach((t,i)=>e.add(new Option(t,i)));e.onchange=()=>{cfg(S.sel)[k]=+e.value;render()};l.appendChild(e);d.appendChild(l)}
  $('pp_pose').add(new Option('おまかせ','random'));for(const k in ARCH)$('pp_pose').add(new Option(ARCH[k].n,k))})();
 function pp(){const t=$('tabs');S.sel=Math.min(S.sel,S.chars.length-1);t.innerHTML='';
  S.chars.forEach((c,i)=>{const b=document.createElement('button');b.textContent=i+1;b.style.cssText='flex:0 0 34px;padding:4px'+(i===S.sel?';background:var(--ac);color:#fff':'');b.onclick=()=>{S.sel=i;pp();render()};t.appendChild(b)});
- const c=S.chars[S.sel],f=cfg(S.sel),fr=S.sceneKey==='free';for(const k in OPT)$('pp_'+k).value=f[k];
+ const c=S.chars[S.sel],f=cfg(S.sel),fr=S.sceneKey==='free';for(const k in OPT)$('pp_'+k).value=f[k];$('pp_heads').value=f.heads||0;$('pp_hv').textContent=f.heads||0;
  $('pp_pose').value=fr?f.pose:c.type;$('pp_x').value=c.pos[0]*100;$('pp_z').value=c.pos[1]*100;$('pp_yaw').value=c.yaw;$('pp_sc').value=c.sc*100;
  ['pose','x','z','yaw','sc'].forEach(k=>$('pp_'+k).disabled=!fr)}
 const ed=(id,f)=>$('pp_'+id).oninput=e=>{f(S.chars[S.sel],+e.target.value);layout();render()};
+$('pp_heads').oninput=e=>{cfg(S.sel).heads=+e.target.value;$('pp_hv').textContent=e.target.value;layout();render()};
 ed('x',(c,v)=>c.pos[0]=v/100);ed('z',(c,v)=>c.pos[1]=v/100);ed('yaw',(c,v)=>c.yaw=v);ed('sc',(c,v)=>c.sc=v/100);
 const rnd=(a,b)=>a+(b-a)*Math.random(),rk=()=>{const ks=Object.keys(ARCH);return ks[Math.floor(Math.random()*ks.length)]};
 $('pp_pose').onchange=e=>{const f=cfg(S.sel),c=S.chars[S.sel];f.pose=e.target.value;S.chars[S.sel]=mkc(f.pose==='random'?rk():f.pose,rnd,rnd,{pos:c.pos,yaw:c.yaw,sc:c.sc});layout();pp();render()};
